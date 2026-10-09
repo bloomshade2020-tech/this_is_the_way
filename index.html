@@ -36,6 +36,28 @@
     .toast{position:absolute;z-index:16;bottom:92px;left:20px;right:20px;background:#1a3337;border:1px solid #7eb5a7;border-radius:10px;padding:14px;color:#d6ede8;font-size:12px;text-align:center;box-shadow:0 12px 30px #0009;display:none}.toast.show{display:block}
     @media(max-width:580px){body{display:block;padding:0;background:#070c12}.device{width:100%;height:100dvh;min-height:0;max-height:none;border:0;border-radius:0;box-shadow:none}.device::after,.screw{display:none}.statusbar{padding-top:calc(16px + var(--safe-t));height:calc(45px + var(--safe-t))}.dock{height:calc(74px + var(--safe-b))}.lock{padding-top:35px}.clock{font-size:72px}}
     @media(max-height:740px){.lock{padding-top:14px;padding-bottom:16px}.crest{width:133px;height:133px}.crest svg{width:80px;height:80px}.hex-hero{height:145px}.hero-circles{width:142px;height:142px}.hero-mark{width:75px;height:75px}.tile{min-height:110px}.home-body{padding-top:15px}.clock{font-size:62px}}
+
+    /* Comms v0.2 — visual treatment of a fictional encrypted handset, local-only recording */
+    .comms-top{padding:12px 19px 13px;display:flex;align-items:center;gap:12px;flex:none;border-bottom:1px solid var(--line);background:linear-gradient(90deg,#13252b,#0a141a)}
+    .comms-avatar{width:49px;height:49px;flex:none;border:1px solid #87c9bd60;background:radial-gradient(circle at 50% 40%,#193a3c,#0c1b20 65%);border-radius:15px;display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 3px #09181b;color:var(--aqua)}
+    .comms-avatar svg{height:34px;width:34px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+    .comms-id{flex:1;min-width:0}.comms-name{font-weight:700;font-size:17px;letter-spacing:.4px;line-height:1.4}.comms-sub{color:var(--muted);font:9px ui-monospace,monospace;letter-spacing:1.3px;margin-top:2px}.comms-dot{display:inline-block;width:6px;height:6px;margin:0 7px 1px 0;border-radius:100%;background:#94d9cf}
+    .comms-top .icon-btn{width:36px;flex:none}.comms-layout{background:radial-gradient(ellipse at 40% 8%,#12303644,transparent 62%)}
+    .channel-strip{border-bottom:1px solid #73908b17;padding:8px 19px;display:flex;align-items:center;justify-content:space-between;font:9px ui-monospace,monospace;letter-spacing:1.3px;color:#93aaa4;background:#0d181d99;gap:9px}.channel-strip span:last-child{color:var(--gold)}
+    .thread{padding:17px 17px 26px;gap:12px;min-height:100%}.thread-day{align-self:center;border:1px solid #52777150;border-radius:30px;background:#0a1a1f;padding:5px 13px;color:#a1b7b0;font:10px ui-monospace,monospace;letter-spacing:1px;margin:11px 0 8px}
+    .bubble-wrap{max-width:100%;gap:4px}.bubble-wrap.mine{align-items:flex-end}.bubble{max-width:min(89%,370px);padding:12px 15px 13px;font-size:14px;line-height:1.85;border-radius:4px 17px 17px 17px;color:#e3f2ee;background:linear-gradient(145deg,#19313a,#17282f);border-color:#70a99e5e;box-shadow:0 5px 19px #0003}
+    .bubble-wrap.mine .bubble{border-radius:17px 4px 17px 17px;background:linear-gradient(135deg,#463c2b,#292a23);border-color:#b9945970;color:#f0e6d0}
+    .bubble-meta{font-size:10px;letter-spacing:.6px;display:flex;align-items:center;gap:9px;color:#9eb9b4}.bubble-wrap:not(.mine) .bubble-meta::first-letter{color:var(--aqua)}.bubble-wrap.mine .bubble-meta{color:#c7b18b}
+    .bubble-wrap.demo{opacity:.63}.bubble-wrap.demo .bubble{border-style:dashed}.bubble-wrap.demo .bubble-meta{letter-spacing:1.3px}
+    .comms-empty-intro{font-size:11px;line-height:1.75;color:#a7c4bd;text-align:center;align-self:center;max-width:280px;border:1px solid #718c8152;border-radius:13px;padding:13px 17px;margin:11px 0 6px;background:#0c1b2090}
+    .comms-empty-intro strong{display:block;color:var(--gold);font:10px ui-monospace,monospace;letter-spacing:1.5px;margin-bottom:5px}
+    .thread-bottom{padding:11px 16px 11px;gap:7px;background:#0b171c;flex:none}
+    .compose-head{display:flex;align-items:center;justify-content:space-between;gap:7px}.compose-head span:first-child{font:10px ui-monospace,monospace;color:var(--gold);letter-spacing:1.4px}.compose-head span:last-child{color:#8eaaa3;font-size:10px}
+    .compose-line{display:flex;gap:7px;align-items:flex-end}.compose-line textarea{flex:1;min-width:0;resize:none;line-height:1.55;padding:11px 12px;min-height:46px;max-height:100px;font-size:14px;border-radius:13px;background:#142229}
+    .compose-line .btn{min-height:46px;padding:8px 12px;white-space:nowrap}.compose-actions{display:flex;gap:8px;justify-content:space-between;align-items:center}.compose-actions .btn{font-size:11px;padding:8px 12px}.compose-actions .btn.ghost{background:none;color:#a8c5bd}
+    .compose-actions .aside-link{border:0;background:none;text-align:left;color:#a8c7be;padding:7px 0;font-size:11px;text-decoration:underline;text-underline-offset:3px}
+    .muted-note{font-size:9px;line-height:1.55;color:#829d98}
+    @media(max-width:375px){.comms-name{font-size:15px}.comms-top{padding-left:15px;padding-right:15px}.thread{padding-left:12px;padding-right:12px}.thread-bottom{padding-left:12px;padding-right:12px}.compose-line .btn{padding:8px 9px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
   </style>
 </head>
@@ -62,8 +84,21 @@
         <nav class="dock" aria-label="メインメニュー"></nav>
       </section>
       <section class="screen" id="screen-comms" aria-label="通信履歴">
-        <div class="header"><div class="left"><small>PRIVATE ENCRYPTED CHANNEL</small><h1>DIN / 通信</h1></div><div class="header-actions"><button class="icon-btn" id="addCommsHeader" aria-label="手動で通信を追加"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button></div></div>
-        <div class="comms-layout"><div class="scroll" id="commsScroll"><div class="thread" id="thread"></div></div><div class="thread-bottom"><button class="btn primary" id="addCommsBtn"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>通信を手動で追加する</button><span class="muted-note">※今のChatGPTの通知は自動取得できません。表示を試すための手動登録機能です。</span></div></div>
+        <div class="comms-top">
+          <div class="comms-avatar" aria-hidden="true"><svg viewBox="0 0 60 60"><path d="M11 14 24 9l5 12h4l5-12 13 5-5 19-16 19-14-19Z"/><path d="m16 29 12 6 2 12 3-12 12-6"/><path d="M24 11 27 23h6l3-12" stroke="#d4b47b"/></svg></div>
+          <div class="comms-id"><div class="comms-name">Din Djarin</div><div class="comms-sub"><span class="comms-dot"></span>PERSONAL CHANNEL / 01</div></div>
+          <button class="icon-btn" id="addCommsHeader" type="button" title="受信した通信を記録する" aria-label="通信を手動で記録"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
+        </div>
+        <div class="comms-layout">
+          <div class="channel-strip"><span>PRIVATE // MESSAGE ARCHIVE</span><span>LOCAL ONLY</span></div>
+          <div class="scroll" id="commsScroll" aria-label="ローカルの通信履歴"><div class="thread" id="thread"></div></div>
+          <div class="thread-bottom">
+            <div class="compose-head"><span>YOUR MESSAGE</span><span>下書き / 未送信</span></div>
+            <div class="compose-line"><textarea id="commsDraft" rows="1" maxlength="20000" placeholder="ディンへのメッセージを書く…" aria-label="返信の下書き"></textarea><button type="button" class="btn primary" id="copyCommsDraft">コピー</button></div>
+            <div class="compose-actions"><button class="aside-link" type="button" id="notifExternal">ChatGPTの通知部屋を開く ↗</button><button class="btn ghost" type="button" id="saveCommsDraft">返信を履歴に記録</button></div>
+            <div class="muted-note">※この画面からディンには送信されません。受信の追加も返信の記録も手動です。</div>
+          </div>
+        </div>
         <nav class="dock" aria-label="メインメニュー"></nav>
       </section>
       <section class="screen" id="screen-rp" aria-label="RP画面">
@@ -79,10 +114,10 @@
       </section>
       <section class="screen" id="screen-settings" aria-label="端末設定">
         <div class="header"><div class="left"><small>TERMINAL PREFERENCES</small><h1>設定</h1></div><div class="header-actions"><button class="icon-btn" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div></div>
-        <div class="scroll"><div class="settings-body"><div class="section-note">これはローカルUI試作品です。ChatGPTへの送受信・通知の自動取り込み・バックグラウンド通知はまだありません。</div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章は現在のブラウザ内にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.1<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
+        <div class="scroll"><div class="settings-body"><div class="section-note">これはローカルUI試作品です。ChatGPTへの送受信・通知の自動取り込み・バックグラウンド通知はまだありません。</div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.2<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
       </section>
     </div>
-    <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
+    <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div id="messageDateField"><label class="field-label" for="modalTimestamp">メッセージの日時（省略すると現在時刻）</label><input class="field" id="modalTimestamp" type="datetime-local" /></div><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
   </div>
   <script>
@@ -113,16 +148,50 @@
     function toast(msg){let n=el('toast');n.textContent=msg;n.classList.add('show');const id=++toastId;setTimeout(()=>{if(toastId===id)n.classList.remove('show');},3100);}
     function updatePreview(){let latest=data.comms.at(-1);el('lockPreview').textContent=latest ? ((latest.sender==='din'?'DIN':'YOU')+' / '+escapeText(latest.text).slice(0,85)) : 'まだ通信履歴はありません。\n既存のChatGPT通知とは未接続です。';}
     function addText(parent,cls,text,tag='div'){let node=document.createElement(tag);node.className=cls;node.textContent=escapeText(text);parent.append(node);return node;}
-    function renderComms(){const t=el('thread');t.replaceChildren();addText(t,'timeline-label','// LOCAL MESSAGE ARCHIVE');if(!data.comms.length){let empty=document.createElement('div');empty.className='sample-bubble';empty.innerHTML='<strong>通信ログ：まだありません</strong><br>上の「通信を手動で追加する」で、<br>ディンからの文章を貼って表示を試せます。<br><br><span class="micro">NO LIVE CHATGPT CONNECTION</span>';t.append(empty);}else{data.comms.forEach(item=>{let w=document.createElement('div');w.className='bubble-wrap'+(item.sender==='me'?' mine':'');addText(w,'bubble-meta',(item.sender==='me'?'YOU':'DIN')+' // '+formatTime(item.at));addText(w,'bubble',item.text);t.append(w);});}requestAnimationFrame(()=>{el('commsScroll').scrollTop=el('commsScroll').scrollHeight;});updatePreview();}
+    function renderComms(){
+      const t=el('thread');t.replaceChildren();let previousDay='';
+      function addMessage(item,demo=false){
+        const wrap=document.createElement('div');wrap.className='bubble-wrap'+(item.sender==='me'?' mine':'')+(demo?' demo':'');
+        addText(wrap,'bubble-meta',demo?(item.sender==='me'?'YOU · SAMPLE':'DIN · SAMPLE'):(item.sender==='me'?'YOU · '+formatTime(item.at):'DIN · '+formatTime(item.at)));
+        addText(wrap,'bubble',item.text);t.append(wrap);
+      }
+      if(!data.comms.length){
+        const msg=document.createElement('div');msg.className='comms-empty-intro';
+        addText(msg,'','NO TRANSMISSIONS YET','strong');
+        addText(msg,'','右上の「＋」からChatGPTの通信文を貼り付けてみよう。下の吹き出しは表示例で、ディンの実際の発言ではありません。');t.append(msg);
+        addMessage({sender:'din',text:'ここに、ディンから届いた通信が表示されます。'},true);
+        addMessage({sender:'me',text:'こちらに、あなたが記録した返信が表示されます。'},true);
+      }else{
+        data.comms.forEach(item=>{
+          const timestamp=new Date(item.at);
+          const day=isNaN(timestamp.getTime())?'日付不明':timestamp.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
+          if(day!==previousDay){addText(t,'thread-day',day);previousDay=day;}
+          addMessage(item);
+        });
+      }
+      requestAnimationFrame(()=>{el('commsScroll').scrollTop=el('commsScroll').scrollHeight;});updatePreview();
+    }
     function renderRp(){const r=el('rpLog');r.replaceChildren();if(!data.rp.length){let empty=document.createElement('div');empty.className='rp-empty';empty.textContent='まだRPの記録はありません。\n下に文章を入力すると、会話とは違う「本文形式」で表示を試せます。\n\n※ここではディンから返答は生成されません。';r.append(empty);}else{data.rp.forEach(item=>{let w=document.createElement('article');w.className='rp-entry'+(item.sender==='din'?' din':'');addText(w,'rp-speaker',item.sender==='din'?'DIN DJARIN':'YOU');addText(w,'rp-words',item.text);addText(w,'rp-time',formatTime(item.at));r.append(w);});}requestAnimationFrame(()=>{el('rpScroll').scrollTop=el('rpScroll').scrollHeight;});}
     let mode='comms',sender='din';
-    function modalOpen(which){mode=which;sender='din';el('modalTitle').textContent=which==='rp'?'ディンの返答を取り込む':'通信を手動で追加';el('modalDesc').textContent=which==='rp'?'ChatGPTからコピーした返答などを、RP画面の表示確認用として手動登録できます。':'既存の通信を貼り付けて表示できます。このアプリからは送信されません。';el('senderPick').hidden=which==='rp';$$('.choice').forEach(c=>c.classList.toggle('selected',c.dataset.sender==='din'));el('modalInput').value='';el('overlay').classList.add('open');el('modalInput').focus();}
+    function modalOpen(which){mode=which;sender='din';el('modalTitle').textContent=which==='rp'?'ディンの返答を取り込む':'通信を手動で記録';el('modalDesc').textContent=which==='rp'?'ChatGPTからコピーした返答などを、RP画面の表示確認用として手動登録できます。':'ChatGPTで受け取った通信や送った文章をここに手動記録できます。自動同期・送信はしません。';el('senderPick').hidden=which==='rp';el('messageDateField').hidden=which==='rp';el('modalTimestamp').value='';$$('.choice').forEach(c=>c.classList.toggle('selected',c.dataset.sender==='din'));el('modalInput').value='';el('overlay').classList.add('open');el('modalInput').focus();}
     function modalClose(){el('overlay').classList.remove('open');}
-    el('addCommsBtn').addEventListener('click',()=>modalOpen('comms'));el('addCommsHeader').addEventListener('click',()=>modalOpen('comms'));el('addDinRp').addEventListener('click',()=>modalOpen('rp'));
+    el('addCommsHeader').addEventListener('click',()=>modalOpen('comms'));el('addDinRp').addEventListener('click',()=>modalOpen('rp'));
     $$('.choice').forEach(c=>c.addEventListener('click',()=>{sender=c.dataset.sender;$$('.choice').forEach(x=>x.classList.toggle('selected',x===c));}));
     el('cancelModal').addEventListener('click',modalClose);el('overlay').addEventListener('click',e=>{if(e.target===el('overlay'))modalClose();});
     document.addEventListener('keydown',e=>{if(e.key==='Escape')modalClose();});
-    el('saveModal').addEventListener('click',()=>{const text=el('modalInput').value.trim();if(!text){toast('文章を入力してください');return;}let record={id:Date.now(),sender:mode==='rp'?'din':sender,text,at:new Date().toISOString()};(mode==='rp'?data.rp:data.comms).push(record);if(!persist())return;modalClose();if(mode==='rp')renderRp();else renderComms();toast('この端末に保存しました');});
+    el('saveModal').addEventListener('click',()=>{const text=el('modalInput').value.trim();if(!text){toast('文章を入力してください');return;}
+      const at=mode==='comms' && el('modalTimestamp').value?new Date(el('modalTimestamp').value):new Date();
+      if(isNaN(at.getTime())){toast('日時を確認してください');return;}
+      const record={id:Date.now(),sender:mode==='rp'?'din':sender,text,at:at.toISOString()};
+      (mode==='rp'?data.rp:data.comms).push(record);
+      if(mode==='comms')data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+      if(!persist())return;modalClose();if(mode==='rp')renderRp();else renderComms();toast('この端末に記録しました（送信はしていません）');
+    });
+    el('saveCommsDraft').addEventListener('click',()=>{const text=el('commsDraft').value.trim();if(!text){toast('まずメッセージを入力してね');return;}
+      data.comms.push({id:Date.now(),sender:'me',text,at:new Date().toISOString()});if(!persist())return;el('commsDraft').value='';renderComms();toast('返信を端末内に記録しました（未送信）');
+    });
+    el('copyCommsDraft').addEventListener('click',()=>copyString(el('commsDraft').value));
+
     el('saveRpDraft').addEventListener('click',()=>{const text=el('rpDraft').value.trim();if(!text){toast('下書きを入力してください');return;}data.rp.push({id:Date.now(),sender:'me',text,at:new Date().toISOString()});if(!persist())return;el('rpDraft').value='';renderRp();toast('画面に記録しました（ChatGPTへは未送信）');});
     async function copyString(str){if(!str){toast('コピーする内容がありません');return;}try{await navigator.clipboard.writeText(str);toast('コピーしました');}catch(e){toast('自動コピーできません。文章を選択してコピーしてください。');}}
     el('copyDraft').addEventListener('click',()=>copyString(el('rpDraft').value));
@@ -130,7 +199,7 @@
     el('saveOut').addEventListener('click',()=>{data.note=el('outNote').value;persist()&&toast('メモを保存しました');});
     const chatgptAllowed = url=>{try{const u=new URL(url);return u.protocol==='https:' && (u.hostname==='chatgpt.com'||u.hostname==='chat.openai.com');}catch{return false;}};
     function openExternal(which){const url=which==='rp'?data.rpUrl:data.notificationUrl;if(!url){toast('先に設定でChatGPTの部屋のURLを登録してね');return;}if(!chatgptAllowed(url)){toast('ChatGPTのHTTPS URLを入力してください');return;}window.open(url,'_blank','noopener,noreferrer');}
-    el('rpExternal').addEventListener('click',()=>openExternal('rp'));el('openRp').addEventListener('click',()=>openExternal('rp'));el('openNotif').addEventListener('click',()=>openExternal('notification'));
+    el('rpExternal').addEventListener('click',()=>openExternal('rp'));el('openRp').addEventListener('click',()=>openExternal('rp'));el('openNotif').addEventListener('click',()=>openExternal('notification'));el('notifExternal').addEventListener('click',()=>openExternal('notification'));
     function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;}
     el('saveSettings').addEventListener('click',()=>{const rp=el('rpUrl').value.trim(),nt=el('notificationUrl').value.trim();if((rp&&!chatgptAllowed(rp))||(nt&&!chatgptAllowed(nt))){toast('chatgpt.com のHTTPS URLを指定してください');return;}data.rpUrl=rp;data.notificationUrl=nt;persist()&&toast('リンクを保存しました');});
     el('exportData').addEventListener('click',()=>{const json=JSON.stringify({...data,exportedAt:new Date().toISOString(),type:'din-comms-local-demo'},null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='din-comms-backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('バックアップを書き出しました');});
