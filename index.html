@@ -7,10 +7,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="DIN COMMS" />
-  <meta name="description" content="This is the way — fictional comlink UI concept. Local-only prototype." />
+  <meta name="description" content="This is the way — fictional comlink UI with optional Gmail read-only import." />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="apple-touch-icon" href="./icon-192.png" />
-  <title>DIN // COMMS — Terminal Prototype</title>
+  <title>DIN // COMMS — Terminal</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     :root{--bg:#060a0e;--panel:#0e171e;--surface:#111d24;--surface2:#16252b;--border:rgba(156,194,190,.19);--line:rgba(143,200,196,.14);--text:#e7f2ef;--muted:#8fa9a9;--aqua:#9de6dc;--gold:#d4b47b;--ember:#e8a36e;--warning:#ffd4a5;--radius:17px;--safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px)}
     *{box-sizing:border-box}html,body{margin:0;width:100%;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;background:#030508;color:var(--text)}button,textarea,input{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--aqua);outline-offset:3px}button:disabled{opacity:.35;cursor:not-allowed}textarea,input{border:1px solid var(--border);background:#0a151b;color:var(--text);border-radius:11px}::placeholder{color:#648181}::selection{background:#387e7b;color:white}
@@ -58,6 +59,15 @@
     .compose-actions .aside-link{border:0;background:none;text-align:left;color:#a8c7be;padding:7px 0;font-size:11px;text-decoration:underline;text-underline-offset:3px}
     .muted-note{font-size:9px;line-height:1.55;color:#829d98}
     @media(max-width:375px){.comms-name{font-size:15px}.comms-top{padding-left:15px;padding-right:15px}.thread{padding-left:12px;padding-right:12px}.thread-bottom{padding-left:12px;padding-right:12px}.compose-line .btn{padding:8px 9px}}
+    /* Gmail import — local-only authenticated REST requests */
+    .gmail-strip{padding:10px 16px;border-bottom:1px solid var(--line);background:#0c1c22;display:flex;align-items:center;justify-content:space-between;gap:9px;flex:none}
+    .gmail-indicator{font-size:11px;color:#b6cac5;line-height:1.5;min-width:0;flex:1}
+    .gmail-indicator strong{color:var(--aqua)}
+    .gmail-indicator small{display:block;color:var(--muted);font-size:9px}
+    .gmail-strip button{background:#1a3137;border:1px solid #568a817c;border-radius:9px;color:var(--aqua);padding:9px 12px;font-size:11px;flex:none}
+    .gmail-strip button:disabled{opacity:.5}
+    .oauth-hint{border-left:2px solid var(--gold);padding:11px 12px;background:#1b211e;font-size:11px;color:#c9d9d2;line-height:1.7;border-radius:4px;margin-top:11px}
+    .oauth-status{font-size:11px;color:var(--aqua);white-space:pre-wrap;line-height:1.7;margin-top:9px}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
   </style>
 </head>
@@ -79,7 +89,7 @@
         <div class="scroll"><div class="home-body"><div class="home-intro"><span class="micro eyebrow">ENCRYPTED PERSONAL ACCESS</span><div class="small-dash"></div></div>
           <div class="hex-hero"><div class="hero-circles"></div><div class="hero-lines"><span></span><span></span></div><svg class="hero-mark" viewBox="0 0 100 100"><path d="M20 25 L39 16 L45 32 L55 32 L61 16 L80 25 L75 47 L68 62 L60 80 L53 89 L47 89 L40 80 L32 62 L25 47Z" fill="none" stroke="#a0e5dc" stroke-width="3" stroke-linejoin="round"/><path d="M27 47 L44 54 L50 74 L56 54 L73 47 M44 54 L56 54" fill="none" stroke="#a0e5dc" stroke-width="4"/><path d="M41 18 L44 37 L56 37 L59 18" fill="none" stroke="#d7b779" stroke-width="3"/></svg><span class="hero-bottom">BESKAR LINK // UI PROTOTYPE</span></div>
           <p class="panel-kicker">// CHOOSE CHANNEL</p><div class="launchers"><button class="tile" data-go="comms"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 8.8 8.8 0 0 1-4-.9L3 21l1.9-4.5a8.8 8.8 0 0 1-.9-4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 11h8m-8 4h5"/></svg></div><div><strong>通信</strong><span>PERSONAL COMMS</span></div></button><button class="tile gold" data-go="rp"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 10h8M8 14h5"/></svg></div><div><strong>RP</strong><span>SHARED PRESENCE</span></div></button></div>
-          <div class="home-info"><div><strong>STATUS:</strong> UI DEMO / オフライン保存</div><div>会話と通信はChatGPTに未接続。ここで追加した文章はこの端末内だけに保存されます。</div></div>
+          <div class="home-info"><div><strong>STATUS:</strong> LOCAL TERMINAL + OPTIONAL GMAIL</div><div>Gmailの通信通知だけ読み取り連携ができます。RPと返信のChatGPT送信は未接続です。</div></div>
         </div></div>
         <nav class="dock" aria-label="メインメニュー"></nav>
       </section>
@@ -90,13 +100,14 @@
           <button class="icon-btn" id="addCommsHeader" type="button" title="受信した通信を記録する" aria-label="通信を手動で記録"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="comms-layout">
-          <div class="channel-strip"><span>PRIVATE // MESSAGE ARCHIVE</span><span>LOCAL ONLY</span></div>
+          <div class="channel-strip"><span>PRIVATE // MESSAGE ARCHIVE</span><span>LOCAL + OPTIONAL GMAIL</span></div>
+          <div class="gmail-strip" aria-live="polite"><div class="gmail-indicator"><strong id="gmailCommsState">Gmail未接続</strong><small id="gmailCommsDetail">初回設定はホーム → 設定から</small></div><button type="button" id="gmailCommsButton">受信確認</button></div>
           <div class="scroll" id="commsScroll" aria-label="ローカルの通信履歴"><div class="thread" id="thread"></div></div>
           <div class="thread-bottom">
             <div class="compose-head"><span>YOUR MESSAGE</span><span>下書き / 未送信</span></div>
             <div class="compose-line"><textarea id="commsDraft" rows="1" maxlength="20000" placeholder="ディンへのメッセージを書く…" aria-label="返信の下書き"></textarea><button type="button" class="btn primary" id="copyCommsDraft">コピー</button></div>
             <div class="compose-actions"><button class="aside-link" type="button" id="notifExternal">ChatGPTの通知部屋を開く ↗</button><button class="btn ghost" type="button" id="saveCommsDraft">返信を履歴に記録</button></div>
-            <div class="muted-note">※この画面からディンには送信されません。受信の追加も返信の記録も手動です。</div>
+            <div class="muted-note">※返信はChatGPTへ送信されません。Gmail連携時は受信だけ取り込めます。</div>
           </div>
         </div>
         <nav class="dock" aria-label="メインメニュー"></nav>
@@ -114,7 +125,15 @@
       </section>
       <section class="screen" id="screen-settings" aria-label="端末設定">
         <div class="header"><div class="left"><small>TERMINAL PREFERENCES</small><h1>設定</h1></div><div class="header-actions"><button class="icon-btn" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div></div>
-        <div class="scroll"><div class="settings-body"><div class="section-note">これはローカルUI試作品です。ChatGPTへの送受信・通知の自動取り込み・バックグラウンド通知はまだありません。</div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.2<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
+        <div class="scroll"><div class="settings-body"><div class="section-note">ChatGPTへの返信送信と独自プッシュ通知は未実装です。Google認証を許可すると、DIN COMMSを開いている間にGmailの通信通知を受信できます。</div><div class="module"><h2>Gmailからの通信受信（試験機能）</h2>
+          <p>Googleの許可画面を使い、ディンのChatGPTタスク通知だけを検索します。受信済みはこのiPhone内に保存。Googleのパスワードは入力しません。APIトークンは保存しません。</p>
+          <label class="field-label" for="oauthClientId">Google OAuth クライアントID</label>
+          <input class="field" id="oauthClientId" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="12345-xxxxx.apps.googleusercontent.com"/>
+          <div class="btnrow"><button class="btn ghost" type="button" id="saveOAuthClient">IDを保存</button><button class="btn primary" type="button" id="gmailConnect">Googleで認証</button></div>
+          <div class="btnrow" style="margin-top:9px"><button class="btn ghost" type="button" id="gmailSyncNow">通信を取得</button><button class="btn ghost" type="button" id="copyOrigin">サイトURLの設定用ドメインをコピー</button></div>
+          <div class="oauth-status" id="gmailSettingStatus" role="status">未接続</div>
+          <div class="oauth-hint">最初にGoogle Cloudで「Gmail APIを有効化」「OAuthクライアント（ウェブアプリ）を作成」「このサイトのオリジンを許可」「自分をテストユーザーに追加」が必要です。<strong>gmail.readonly は受信トレイだけでなくGmail全体を読める権限</strong>なので、許可内容を確認してください。アプリは指定の通信件名だけを取り込みます。アプリを閉じた状態では取得・通知しません。iPhoneのホーム画面版でGoogle認証画面が開かない場合はSafariで接続を試してください。</div>
+          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.3<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
       </section>
     </div>
     <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div id="messageDateField"><label class="field-label" for="modalTimestamp">メッセージの日時（省略すると現在時刻）</label><input class="field" id="modalTimestamp" type="datetime-local" /></div><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
@@ -124,7 +143,7 @@
   (() => {
     'use strict';
     const STORAGE_KEY = 'din-terminal-v01';
-    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:''};
+    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', oauthClientId:''};
     let data = {...initial};
     try { const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); if (stored && typeof stored === 'object') {data = {...initial, ...stored};} } catch(e) { console.warn('Could not load local demo data',e); }
     if (!Array.isArray(data.comms)) data.comms=[];
@@ -138,7 +157,7 @@
     let current = 'lock';
     const dockItems=[['home','ホーム','<path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/>'],['comms','通信','<path d="M20 11a8 8 0 0 1-8 8 8.8 8.8 0 0 1-4-.9L3 21l2-4.5A8 8 0 1 1 20 11Z"/>'],['rp','RP','<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h4"/>'],['out','外','<path d="M4 4h16v12H7l-3 4V4Z"/>']];
     $$('.dock').forEach(dock=>{dock.innerHTML=dockItems.map(([page,title,path])=>`<button type="button" data-go="${page}" aria-label="${title}" data-page="${page}"><svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>${title}</button>`).join('');});
-    const go = page => {if(!el('screen-'+page))return;current=page; $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+page));$$('.dock button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='comms')renderComms();if(page==='rp')renderRp();if(page==='settings')renderSettings();if(page==='out')el('outNote').value=data.note||'';if(page==='lock')updatePreview();};
+    const go = page => {if(!el('screen-'+page))return;current=page; $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+page));$$('.dock button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='comms'){renderComms();if(gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);}if(page==='rp')renderRp();if(page==='settings')renderSettings();if(page==='out')el('outNote').value=data.note||'';if(page==='lock')updatePreview();};
     document.addEventListener('click',e=>{const target=e.target.closest('[data-go]'); if(target)go(target.dataset.go);});
     el('homeLock').addEventListener('click',()=>go('lock'));
     el('unlockBtn').addEventListener('click',()=>go('home'));
@@ -200,10 +219,174 @@
     const chatgptAllowed = url=>{try{const u=new URL(url);return u.protocol==='https:' && (u.hostname==='chatgpt.com'||u.hostname==='chat.openai.com');}catch{return false;}};
     function openExternal(which){const url=which==='rp'?data.rpUrl:data.notificationUrl;if(!url){toast('先に設定でChatGPTの部屋のURLを登録してね');return;}if(!chatgptAllowed(url)){toast('ChatGPTのHTTPS URLを入力してください');return;}window.open(url,'_blank','noopener,noreferrer');}
     el('rpExternal').addEventListener('click',()=>openExternal('rp'));el('openRp').addEventListener('click',()=>openExternal('rp'));el('openNotif').addEventListener('click',()=>openExternal('notification'));el('notifExternal').addEventListener('click',()=>openExternal('notification'));
-    function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;}
+    function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('oauthClientId').value=data.oauthClientId||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;refreshGmailStatus();}
     el('saveSettings').addEventListener('click',()=>{const rp=el('rpUrl').value.trim(),nt=el('notificationUrl').value.trim();if((rp&&!chatgptAllowed(rp))||(nt&&!chatgptAllowed(nt))){toast('chatgpt.com のHTTPS URLを指定してください');return;}data.rpUrl=rp;data.notificationUrl=nt;persist()&&toast('リンクを保存しました');});
     el('exportData').addEventListener('click',()=>{const json=JSON.stringify({...data,exportedAt:new Date().toISOString(),type:'din-comms-local-demo'},null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='din-comms-backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('バックアップを書き出しました');});
     el('resetData').addEventListener('click',()=>{if(!confirm('このブラウザ内の通信・RP・メモ・URLをすべて削除しますか？\nこの操作は取り消せません。'))return;data={...initial,comms:[],rp:[]};persist();renderSettings();renderComms();renderRp();updatePreview();toast('ローカルデータを削除しました');});
+    // Gmail web-only import. Only the public OAuth client ID is persisted;
+    // access tokens stay in memory and Google passwords never touch this app.
+    const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+    const GMAIL_SUBJECT = '[Task Update] ディンからの通信｜This is the way';
+    const GMAIL_SENDER = 'noreply@tm.openai.com';
+    let gmailToken = '';
+    let gmailTokenExpiry = 0;
+    let gmailTokenClient = null;
+    let gmailBusy = false;
+    let lastGmailSync = 0;
+    let gmailStatusText = 'Gmail未接続';
+    let gmailStatusDetail = '設定からGoogle認証を行ってください';
+
+    function refreshGmailStatus(){
+      el('gmailCommsState').textContent = gmailStatusText;
+      el('gmailCommsDetail').textContent = gmailStatusDetail;
+      el('gmailSettingStatus').textContent = gmailStatusText + ' / ' + gmailStatusDetail;
+      const busy = gmailBusy;
+      el('gmailCommsButton').disabled = busy;
+      el('gmailSyncNow').disabled = busy;
+      el('gmailConnect').disabled = busy;
+    }
+    function gmailState(head,detail){gmailStatusText=head;gmailStatusDetail=detail;refreshGmailStatus();}
+    function getClientId(){return (data.oauthClientId || '').trim();}
+    function validClientId(id){return /^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(id);}
+    function saveClientId(){
+      const id=el('oauthClientId').value.trim();
+      if(!validClientId(id)){toast('Googleのウェブアプリ用クライアントIDを確認してね');return false;}
+      if(id!==data.oauthClientId){gmailToken='';gmailTokenExpiry=0;gmailTokenClient=null;}
+      data.oauthClientId=id;
+      if(!persist())return false;
+      gmailState('認証待ち','Googleのログイン画面から許可してください');
+      toast('クライアントIDをこの端末に保存しました');
+      return true;
+    }
+    el('saveOAuthClient').addEventListener('click',saveClientId);
+    el('copyOrigin').addEventListener('click',()=>copyString(location.origin));
+
+    function authorizeGmail(){
+      if(!getClientId() || (current==='settings' && el('oauthClientId').value.trim()!==getClientId())){
+        if(!saveClientId())return;
+      }
+      if(!window.google?.accounts?.oauth2){
+        gmailState('認証できません','Googleの認証用プログラムが未読込です。通信状態を確認して再試行してください');
+        return;
+      }
+      try{
+        if(!gmailTokenClient){
+          gmailTokenClient=google.accounts.oauth2.initTokenClient({
+            client_id:getClientId(), scope:GMAIL_SCOPE,
+            callback: response=>{
+              if(response.error || !response.access_token){
+                gmailState('Google認証に失敗',response.error_description||response.error||'許可を確認してください');
+                return;
+              }
+              gmailToken=response.access_token;
+              gmailTokenExpiry=Date.now()+Math.max(0,(Number(response.expires_in)||3500)-90)*1000;
+              gmailState('Gmail接続中','通信を取得しています…');
+              syncGmail(true);
+            },
+            error_callback: err=>{
+              gmailState('Google認証を開始できません',err?.type==='popup_failed_to_open'?'ポップアップを開けません。SafariでアプリURLを開いて試してください':(err?.message||err?.type||'接続を確認してください'));
+            }
+          });
+        }
+        gmailTokenClient.requestAccessToken({prompt: gmailToken ? '' : 'consent'});
+      }catch(err){gmailState('Google認証エラー',err?.message||'ログイン画面を開けませんでした');}
+    }
+    el('gmailConnect').addEventListener('click',authorizeGmail);
+    el('gmailCommsButton').addEventListener('click',()=>{if(!gmailToken || Date.now()>=gmailTokenExpiry){authorizeGmail();return;}syncGmail(true);});
+    el('gmailSyncNow').addEventListener('click',()=>{if(!gmailToken || Date.now()>=gmailTokenExpiry){authorizeGmail();return;}syncGmail(true);});
+
+    function decodeB64Url(input){
+      const b64=input.replace(/-/g,'+').replace(/_/g,'/');
+      const bytes=Uint8Array.from(atob(b64.padEnd(Math.ceil(b64.length/4)*4,'=')),c=>c.charCodeAt(0));
+      return new TextDecoder('utf-8').decode(bytes);
+    }
+    function collectMimeParts(part, output=[]){
+      if(part?.mimeType==='text/plain' && part.body?.data)output.push({type:'text/plain',content:decodeB64Url(part.body.data)});
+      else if(part?.mimeType==='text/html' && part.body?.data)output.push({type:'text/html',content:decodeB64Url(part.body.data)});
+      for(const p of (part?.parts||[]))collectMimeParts(p,output);
+      return output;
+    }
+    function htmlToText(html){
+      const parsed=new DOMParser().parseFromString(html,'text/html');
+      parsed.querySelectorAll('script,style,svg,noscript,head').forEach(n=>n.remove());
+      parsed.querySelectorAll('br').forEach(n=>n.replaceWith(parsed.createTextNode('\n')));
+      parsed.querySelectorAll('div,p,li,section,table,tr,h1,h2,h3').forEach(n=>n.append(parsed.createTextNode('\n')));
+      return parsed.body?.textContent||'';
+    }
+    function extractComms(message){
+      const parts=collectMimeParts(message.payload);
+      const html=parts.find(p=>p.type==='text/html');
+      const plain=parts.find(p=>p.type==='text/plain');
+      const full=html?htmlToText(html.content):(plain?.content||'');
+      const normalized=full.replace(/\r/g,'').replace(/\u00a0/g,' ');
+      const start=normalized.indexOf('ディンからの通信｜This is the way');
+      if(start<0)return {error:'メール本文に通信タイトルが見つかりません'};
+      let text=normalized.slice(start+'ディンからの通信｜This is the way'.length);
+      const end=text.search(/\bView\s+message\b|メッセージを表示|メッセージを見る/i);
+      if(end>=0)text=text.slice(0,end);
+      text=text.replace(/[ \t]+/g,' ').replace(/\n[ \t]*/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+      // In OpenAI's Task Update emails, truncation is signaled by three trailing dots.
+      if(!text)return {error:'本文が空です'};
+      if(/\.{3}$/.test(text))return {error:'メール本文の末尾が省略されています'};
+      return {text};
+    }
+    async function gmailJson(url){
+      const response=await fetch(url,{headers:{Authorization:'Bearer '+gmailToken},cache:'no-store'});
+      if(!response.ok){
+        let msg='';try{const e=await response.json();msg=e.error?.message||'';}catch{}
+        const err=new Error('Gmail API '+response.status+(msg?' : '+msg:''));err.status=response.status;throw err;
+      }
+      return response.json();
+    }
+    async function syncGmail(manual){
+      if(gmailBusy || !gmailToken)return;
+      if(Date.now()>=gmailTokenExpiry){gmailToken='';gmailState('再認証が必要','受信確認を押してGoogleに再接続してください');return;}
+      gmailBusy=true;gmailState('Gmail受信確認中','ディンの通信通知だけを探しています');
+      try{
+        const q=`from:${GMAIL_SENDER} subject:"ディンからの通信" newer_than:90d`;
+        const endpoint='https://gmail.googleapis.com/gmail/v1/users/me/messages';
+        const listing=await gmailJson(endpoint+'?'+new URLSearchParams({q,maxResults:'50'}));
+        let added=0,skipped=0,truncated=0;
+        const existing=new Set(data.comms.filter(x=>x.sourceId).map(x=>x.sourceId));
+        const items=[];
+        for(const m of (listing.messages||[])){
+          const sourceId='gmail:'+m.id;
+          if(existing.has(sourceId))continue;
+          const msg=await gmailJson(endpoint+'/'+encodeURIComponent(m.id)+'?format=full');
+          const headers=msg.payload?.headers||[];
+          const getHeader=key=>headers.find(h=>h.name?.toLowerCase()===key)?.value||'';
+          const subject=getHeader('subject');
+          const from=getHeader('from');
+          // Exact subject + sender checks. Other Task Update mails, e.g. Jugemu, are ignored.
+          if(subject!==GMAIL_SUBJECT || !from.toLowerCase().includes('<'+GMAIL_SENDER+'>') && !from.toLowerCase().includes(GMAIL_SENDER)) {skipped++;continue;}
+          const found=extractComms(msg);
+          if(found.error){truncated++;continue;}
+          const ts=Number(msg.internalDate);
+          items.push({id:sourceId,sourceId,sender:'din',text:found.text,at:Number.isFinite(ts)&&ts>0?new Date(ts).toISOString():new Date().toISOString()});
+          existing.add(sourceId);
+        }
+        if(items.length){
+          data.comms.push(...items);
+          data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+          if(!persist())throw new Error('端末への保存に失敗しました');
+          added=items.length;
+          renderComms();renderSettingsStats();
+        }
+        lastGmailSync=Date.now();
+        const suffix=truncated?` / 省略・未確認 ${truncated}件は保留`:'';
+        gmailState('Gmail接続済み',`${added}件追加・${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})} 確認${suffix}`);
+        if(manual)toast(added?`ディンの通信を${added}件取り込みました`:`新しいディンの通信はありません${suffix}`);
+      }catch(err){
+        if(err.status===401){gmailToken='';gmailTokenExpiry=0;}
+        gmailState('Gmail受信エラー',err.status===401?'ログイン期限が切れました。再認証してください':err.status===403?'Gmail APIの有効化とGoogle側の権限を確認してください':(err.message||'通信に失敗しました'));
+      }finally{gmailBusy=false;refreshGmailStatus();}
+    }
+    function renderSettingsStats(){el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;}
+    window.addEventListener('focus',()=>{if(gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden && gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);});
+    setInterval(()=>{if(!document.hidden && gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);},120000);
+    if(data.oauthClientId)gmailState('認証待ち','「受信確認」からGoogleに接続できます');
+
     updatePreview();
     if('serviceWorker' in navigator && location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
   })();

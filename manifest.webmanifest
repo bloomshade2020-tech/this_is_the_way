@@ -1,7 +1,7 @@
 {
-  "name": "DIN // COMMS — Terminal Demo",
+  "name": "DIN // COMMS — Terminal",
   "short_name": "DIN COMMS",
-  "description": "This is the way — private fictional comlink UI prototype",
+  "description": "This is the way — private fictional comlink UI with optional Gmail import",
   "id": "./",
   "start_url": "./",
   "scope": "./",
