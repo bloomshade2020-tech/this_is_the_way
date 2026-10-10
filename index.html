@@ -68,6 +68,18 @@
     .gmail-strip button:disabled{opacity:.5}
     .oauth-hint{border-left:2px solid var(--gold);padding:11px 12px;background:#1b211e;font-size:11px;color:#c9d9d2;line-height:1.7;border-radius:4px;margin-top:11px}
     .oauth-status{font-size:11px;color:var(--aqua);white-space:pre-wrap;line-height:1.7;margin-top:9px}
+    /* v0.4: return-to-ChatGPT reply bridge; no direct ChatGPT API write access */
+    .reply-actions{display:flex;gap:7px;align-items:stretch}.reply-actions button:first-child{flex:1;min-width:0}
+    .reply-actions .btn{font-size:11px;line-height:1.4;padding:9px 10px;min-height:38px}
+    .reply-actions .experimental{flex:0 0 auto;border:1px solid rgba(212,180,123,.4);color:var(--gold);background:#241f1b}
+    .reply-note{color:#91a9a3;font-size:10px;line-height:1.55}
+    .reply-pending{background:#182522;border:1px solid #bfa56c65;border-radius:11px;padding:10px 11px;display:flex;flex-direction:column;gap:8px}
+    .reply-pending[hidden]{display:none}
+    .reply-pending p{font-size:11px;line-height:1.6;margin:0;color:#dfd5bc}
+    .reply-pending-actions{display:flex;gap:8px}.reply-pending-actions button{flex:1;font-size:11px;padding:8px 9px}
+    .minor-reply-actions{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .minor-reply-actions button{border:0;background:none;color:#9dc5ba;font-size:11px;padding:5px 0;text-decoration:underline;text-underline-offset:3px}
+    @media(max-width:375px){.reply-actions .btn{font-size:10px;padding:8px 7px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
   </style>
 </head>
@@ -89,7 +101,7 @@
         <div class="scroll"><div class="home-body"><div class="home-intro"><span class="micro eyebrow">ENCRYPTED PERSONAL ACCESS</span><div class="small-dash"></div></div>
           <div class="hex-hero"><div class="hero-circles"></div><div class="hero-lines"><span></span><span></span></div><svg class="hero-mark" viewBox="0 0 100 100"><path d="M20 25 L39 16 L45 32 L55 32 L61 16 L80 25 L75 47 L68 62 L60 80 L53 89 L47 89 L40 80 L32 62 L25 47Z" fill="none" stroke="#a0e5dc" stroke-width="3" stroke-linejoin="round"/><path d="M27 47 L44 54 L50 74 L56 54 L73 47 M44 54 L56 54" fill="none" stroke="#a0e5dc" stroke-width="4"/><path d="M41 18 L44 37 L56 37 L59 18" fill="none" stroke="#d7b779" stroke-width="3"/></svg><span class="hero-bottom">BESKAR LINK // UI PROTOTYPE</span></div>
           <p class="panel-kicker">// CHOOSE CHANNEL</p><div class="launchers"><button class="tile" data-go="comms"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 8.8 8.8 0 0 1-4-.9L3 21l1.9-4.5a8.8 8.8 0 0 1-.9-4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 11h8m-8 4h5"/></svg></div><div><strong>通信</strong><span>PERSONAL COMMS</span></div></button><button class="tile gold" data-go="rp"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 10h8M8 14h5"/></svg></div><div><strong>RP</strong><span>SHARED PRESENCE</span></div></button></div>
-          <div class="home-info"><div><strong>STATUS:</strong> LOCAL TERMINAL + OPTIONAL GMAIL</div><div>Gmailの通信通知だけ読み取り連携ができます。RPと返信のChatGPT送信は未接続です。</div></div>
+          <div class="home-info"><div><strong>STATUS:</strong> LOCAL TERMINAL + OPTIONAL GMAIL</div><div>Gmailの通信通知だけ読み取り連携ができます。RPと返信はChatGPTを開いて手動送信します。</div></div>
         </div></div>
         <nav class="dock" aria-label="メインメニュー"></nav>
       </section>
@@ -104,10 +116,12 @@
           <div class="gmail-strip" aria-live="polite"><div class="gmail-indicator"><strong id="gmailCommsState">Gmail未接続</strong><small id="gmailCommsDetail">初回設定はホーム → 設定から</small></div><button type="button" id="gmailCommsButton">受信確認</button></div>
           <div class="scroll" id="commsScroll" aria-label="ローカルの通信履歴"><div class="thread" id="thread"></div></div>
           <div class="thread-bottom">
-            <div class="compose-head"><span>YOUR MESSAGE</span><span>下書き / 未送信</span></div>
-            <div class="compose-line"><textarea id="commsDraft" rows="1" maxlength="20000" placeholder="ディンへのメッセージを書く…" aria-label="返信の下書き"></textarea><button type="button" class="btn primary" id="copyCommsDraft">コピー</button></div>
-            <div class="compose-actions"><button class="aside-link" type="button" id="notifExternal">ChatGPTの通知部屋を開く ↗</button><button class="btn ghost" type="button" id="saveCommsDraft">返信を履歴に記録</button></div>
-            <div class="muted-note">※返信はChatGPTへ送信されません。Gmail連携時は受信だけ取り込めます。</div>
+            <div class="compose-head"><span>YOUR MESSAGE</span><span>下書き / まだ送信していません</span></div>
+            <div class="compose-line"><textarea id="commsDraft" rows="1" maxlength="20000" placeholder="ディンへのメッセージを書く…" aria-label="返信の下書き"></textarea><button type="button" class="btn ghost" id="copyCommsDraft">コピー</button></div>
+            <div class="reply-actions"><button type="button" class="btn primary" id="replyViaChatgpt">コピーしてChatGPTを開く ↗</button><button type="button" class="btn experimental" id="experimentPrefill">入力済みで開く（実験）</button></div>
+            <div class="reply-pending" id="pendingReplyPanel" hidden><p id="pendingReplyText">ChatGPTの通知部屋で送信した？</p><div class="reply-pending-actions"><button type="button" class="btn primary" id="confirmReplySent">送信した（履歴に記録）</button><button type="button" class="btn ghost" id="cancelReplyPending">まだ送ってない</button></div></div>
+            <div class="minor-reply-actions"><button type="button" id="pasteDinReply">ディンの通常返答を貼り付ける ＋</button><button type="button" id="notifExternal">通知部屋を開く ↗</button></div>
+            <div class="reply-note">※コピー後、送信はChatGPTで押してください。通常返答はGmailに来ないため手動で貼り付けます。</div>
           </div>
         </div>
         <nav class="dock" aria-label="メインメニュー"></nav>
@@ -125,7 +139,7 @@
       </section>
       <section class="screen" id="screen-settings" aria-label="端末設定">
         <div class="header"><div class="left"><small>TERMINAL PREFERENCES</small><h1>設定</h1></div><div class="header-actions"><button class="icon-btn" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div></div>
-        <div class="scroll"><div class="settings-body"><div class="section-note">ChatGPTへの返信送信と独自プッシュ通知は未実装です。Google認証を許可すると、DIN COMMSを開いている間にGmailの通信通知を受信できます。</div><div class="module"><h2>Gmailからの通信受信（試験機能）</h2>
+        <div class="scroll"><div class="settings-body"><div class="section-note">ChatGPTへの直接送信・通常返答の自動取得・独自プッシュ通知は未実装です。Google認証を許可すると、DIN COMMSを開いている間にGmailの通信通知を受信できます。</div><div class="module"><h2>Gmailからの通信受信（試験機能）</h2>
           <p>Googleの許可画面を使い、ディンのChatGPTタスク通知だけを検索します。受信済みはこのiPhone内に保存。Googleのパスワードは入力しません。APIトークンは保存しません。</p>
           <label class="field-label" for="oauthClientId">Google OAuth クライアントID</label>
           <input class="field" id="oauthClientId" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="12345-xxxxx.apps.googleusercontent.com"/>
@@ -133,7 +147,7 @@
           <div class="btnrow" style="margin-top:9px"><button class="btn ghost" type="button" id="gmailSyncNow">通信を取得</button><button class="btn ghost" type="button" id="copyOrigin">サイトURLの設定用ドメインをコピー</button></div>
           <div class="oauth-status" id="gmailSettingStatus" role="status">未接続</div>
           <div class="oauth-hint">最初にGoogle Cloudで「Gmail APIを有効化」「OAuthクライアント（ウェブアプリ）を作成」「このサイトのオリジンを許可」「自分をテストユーザーに追加」が必要です。<strong>gmail.readonly は受信トレイだけでなくGmail全体を読める権限</strong>なので、許可内容を確認してください。アプリは指定の通信件名だけを取り込みます。アプリを閉じた状態では取得・通知しません。iPhoneのホーム画面版でGoogle認証画面が開かない場合はSafariで接続を試してください。</div>
-          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.3<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
+          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.4<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
       </section>
     </div>
     <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div id="messageDateField"><label class="field-label" for="modalTimestamp">メッセージの日時（省略すると現在時刻）</label><input class="field" id="modalTimestamp" type="datetime-local" /></div><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
@@ -143,11 +157,13 @@
   (() => {
     'use strict';
     const STORAGE_KEY = 'din-terminal-v01';
-    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', oauthClientId:''};
+    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', oauthClientId:'', commsDraftText:'', pendingReply:null};
     let data = {...initial};
     try { const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); if (stored && typeof stored === 'object') {data = {...initial, ...stored};} } catch(e) { console.warn('Could not load local demo data',e); }
     if (!Array.isArray(data.comms)) data.comms=[];
     if (!Array.isArray(data.rp)) data.rp=[];
+    if (typeof data.commsDraftText !== 'string') data.commsDraftText='';
+    if (!data.pendingReply || typeof data.pendingReply.text !== 'string') data.pendingReply=null;
     const el = id => document.getElementById(id);
     const $ = (selector, root=document) => root.querySelector(selector);
     const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
@@ -165,7 +181,7 @@
     const updateClock=()=>{let d=new Date();let time=d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});el('statusTime').textContent=time;el('lockClock').textContent=time;el('lockDate').textContent=d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}).replaceAll('/','.').toUpperCase();};updateClock();setInterval(updateClock,30000);
     let toastId=0;
     function toast(msg){let n=el('toast');n.textContent=msg;n.classList.add('show');const id=++toastId;setTimeout(()=>{if(toastId===id)n.classList.remove('show');},3100);}
-    function updatePreview(){let latest=data.comms.at(-1);el('lockPreview').textContent=latest ? ((latest.sender==='din'?'DIN':'YOU')+' / '+escapeText(latest.text).slice(0,85)) : 'まだ通信履歴はありません。\n既存のChatGPT通知とは未接続です。';}
+    function updatePreview(){let latest=data.comms.at(-1);el('lockPreview').textContent=latest ? ((latest.sender==='din'?'DIN':'YOU')+' / '+escapeText(latest.text).slice(0,85)) : 'まだ通信履歴はありません。\nGmailを接続すると通信を取り込めます。';}
     function addText(parent,cls,text,tag='div'){let node=document.createElement(tag);node.className=cls;node.textContent=escapeText(text);parent.append(node);return node;}
     function renderComms(){
       const t=el('thread');t.replaceChildren();let previousDay='';
@@ -206,10 +222,74 @@
       if(mode==='comms')data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
       if(!persist())return;modalClose();if(mode==='rp')renderRp();else renderComms();toast('この端末に記録しました（送信はしていません）');
     });
-    el('saveCommsDraft').addEventListener('click',()=>{const text=el('commsDraft').value.trim();if(!text){toast('まずメッセージを入力してね');return;}
-      data.comms.push({id:Date.now(),sender:'me',text,at:new Date().toISOString()});if(!persist())return;el('commsDraft').value='';renderComms();toast('返信を端末内に記録しました（未送信）');
-    });
+    // v0.4: preserve the outgoing draft across an external app switch.
+    el('commsDraft').value = data.commsDraftText;
+    el('commsDraft').addEventListener('input',()=>{data.commsDraftText=el('commsDraft').value;persist();});
+    function refreshPendingReply(){
+      const pending=data.pendingReply;
+      el('pendingReplyPanel').hidden=!pending;
+      if(pending)el('pendingReplyText').textContent='前回の返信候補：「'+pending.text.slice(0,54)+(pending.text.length>54?'…':'')+'」\nChatGPTで送信できた？';
+    }
+    refreshPendingReply();
+    const getReplyText=()=>el('commsDraft').value.trim();
+    function notificationLinkReady(){
+      if(!data.notificationUrl || !chatgptAllowed(data.notificationUrl)){
+        toast('先に「設定」でChatGPT通知部屋のURLを登録してね');
+        go('settings');return false;
+      }
+      return true;
+    }
+    function preparePendingReply(text, mode){
+      data.commsDraftText=text;
+      data.pendingReply={text,at:new Date().toISOString(),mode};
+      if(!persist())return false;
+      refreshPendingReply();return true;
+    }
+    async function copyReplyAndOpen(){
+      const text=getReplyText();
+      if(!text){toast('ディンへの返信を入力してね');return;}
+      if(!notificationLinkReady())return;
+      // Clipboard needs user activation. No network request and no URL query carries reply text.
+      try {await navigator.clipboard.writeText(text);} catch(e){toast('コピーが許可されませんでした。右の「コピー」で試してね');return;}
+      if(!preparePendingReply(text,'clipboard'))return;
+      // Same-tab navigation avoids popup blocking on iPhone PWAs; sending remains a manual action.
+      window.location.assign(data.notificationUrl);
+    }
+    el('replyViaChatgpt').addEventListener('click',copyReplyAndOpen);
     el('copyCommsDraft').addEventListener('click',()=>copyString(el('commsDraft').value));
+    el('confirmReplySent').addEventListener('click',()=>{
+      const pending=data.pendingReply;if(!pending)return;
+      // Only a user confirmation may mark the ChatGPT-side send as completed.
+      const id='reply-confirmed:'+pending.at;
+      if(!data.comms.some(m=>m.id===id)){
+        data.comms.push({id,sender:'me',text:pending.text,at:new Date().toISOString(),sendStatus:'user-confirmed'});
+        data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
+      }
+      if(el('commsDraft').value.trim()===pending.text){el('commsDraft').value='';data.commsDraftText='';}
+      data.pendingReply=null;persist();refreshPendingReply();renderComms();toast('送信済みとして端末内に記録しました（手動確認）');
+    });
+    el('cancelReplyPending').addEventListener('click',()=>{
+      data.pendingReply=null;persist();refreshPendingReply();toast('送信扱いにはせず、下書きを残しました');
+    });
+    el('pasteDinReply').addEventListener('click',()=>{
+      modalOpen('comms');
+      el('modalTitle').textContent='ディンの通常返答を取り込む';
+      el('modalDesc').textContent='ChatGPTでディンから返ってきた通常の返答をコピーして貼り付けてね。Gmailからは自動取得できないため、手動で保存します。';
+    });
+    // Unofficial iOS ChatGPT deep link. Explicit opt-in only; reply text is in the URL query.
+    el('experimentPrefill').addEventListener('click',()=>{
+      const text=getReplyText();if(!text){toast('まず試す文章を入力してね');return;}
+      if(!notificationLinkReady())return;
+      const path=new URL(data.notificationUrl).pathname;
+      const match=path.match(/\/c\/([0-9a-f-]{16,})/i);
+      if(!match){toast('URLからチャットIDを特定できません。通常のコピー方式を使ってね');return;}
+      if(!confirm('【非公式の実験】\nChatGPTアプリの入力欄に文章をセットできるか試します。成功は保証されず、別の会話が開くこともあります。\n\n文章がURLの一部として渡されるため、OSの履歴やログに残る可能性があります。まずは秘密を含まないテスト文で試してください。\n\nChatGPT側で正しい部屋を確認し、送信ボタンは自分で押します。続ける？'))return;
+      if(!preparePendingReply(text,'experimental-deeplink'))return;
+      const deepLink='com.openai.chat://chatgpt.com/c/'+match[1]+'/?prompt='+encodeURIComponent(text);
+      window.location.href=deepLink;
+      // If nothing opens, user can try clipboard fallback without losing the draft.
+      setTimeout(()=>{if(!document.hidden)toast('開けなければ「コピーしてChatGPTを開く」を使ってね');},1600);
+    });
 
     el('saveRpDraft').addEventListener('click',()=>{const text=el('rpDraft').value.trim();if(!text){toast('下書きを入力してください');return;}data.rp.push({id:Date.now(),sender:'me',text,at:new Date().toISOString()});if(!persist())return;el('rpDraft').value='';renderRp();toast('画面に記録しました（ChatGPTへは未送信）');});
     async function copyString(str){if(!str){toast('コピーする内容がありません');return;}try{await navigator.clipboard.writeText(str);toast('コピーしました');}catch(e){toast('自動コピーできません。文章を選択してコピーしてください。');}}
