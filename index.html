@@ -81,6 +81,18 @@
     .minor-reply-actions button{border:0;background:none;color:#9dc5ba;font-size:11px;padding:5px 0;text-decoration:underline;text-underline-offset:3px}
     @media(max-width:375px){.reply-actions .btn{font-size:10px;padding:8px 7px}}
     @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+    /* v0.5: isolated API RP test; never mixed into canonical Gmail/archive */
+    .api-entry{border:1px solid #bfa56c65;color:var(--gold);background:#211e1b;border-radius:9px;padding:8px 11px;font-size:11px}
+    .api-banner{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 15px;border-bottom:1px solid var(--line);background:#131f22}
+    .api-banner small{color:#aec7c1;font-size:10px;line-height:1.45}.api-banner strong{display:block;color:var(--aqua);font-size:12px}
+    .api-thread{background:radial-gradient(ellipse at 45% 0%,#16414344,transparent 68%)}
+    .api-state{font-size:10px;line-height:1.5;color:#a9c9bf;min-height:16px}
+    .api-token-summary{font-size:10px;color:#c2ab81;line-height:1.6}
+    .api-field-note{font-size:10px;color:#a6bab3;line-height:1.6;margin-top:6px}
+    #apiPrompt{min-height:140px;max-height:310px;resize:vertical;font-size:12px;line-height:1.65;width:100%}
+    #apiDraft{min-height:50px;max-height:120px}
+    .api-banner .api-entry{white-space:nowrap}
   </style>
 </head>
 <body>
@@ -101,7 +113,7 @@
         <div class="scroll"><div class="home-body"><div class="home-intro"><span class="micro eyebrow">ENCRYPTED PERSONAL ACCESS</span><div class="small-dash"></div></div>
           <div class="hex-hero"><div class="hero-circles"></div><div class="hero-lines"><span></span><span></span></div><svg class="hero-mark" viewBox="0 0 100 100"><path d="M20 25 L39 16 L45 32 L55 32 L61 16 L80 25 L75 47 L68 62 L60 80 L53 89 L47 89 L40 80 L32 62 L25 47Z" fill="none" stroke="#a0e5dc" stroke-width="3" stroke-linejoin="round"/><path d="M27 47 L44 54 L50 74 L56 54 L73 47 M44 54 L56 54" fill="none" stroke="#a0e5dc" stroke-width="4"/><path d="M41 18 L44 37 L56 37 L59 18" fill="none" stroke="#d7b779" stroke-width="3"/></svg><span class="hero-bottom">BESKAR LINK // UI PROTOTYPE</span></div>
           <p class="panel-kicker">// CHOOSE CHANNEL</p><div class="launchers"><button class="tile" data-go="comms"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 8.8 8.8 0 0 1-4-.9L3 21l1.9-4.5a8.8 8.8 0 0 1-.9-4A8.5 8.5 0 1 1 20 11.5Z"/><path d="M8 11h8m-8 4h5"/></svg></div><div><strong>通信</strong><span>PERSONAL COMMS</span></div></button><button class="tile gold" data-go="rp"><div class="tile-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 10h8M8 14h5"/></svg></div><div><strong>RP</strong><span>SHARED PRESENCE</span></div></button></div>
-          <div class="home-info"><div><strong>STATUS:</strong> LOCAL TERMINAL + OPTIONAL GMAIL</div><div>Gmailの通信通知だけ読み取り連携ができます。RPと返信はChatGPTを開いて手動送信します。</div></div>
+          <div class="home-info"><div><strong>STATUS:</strong> LOCAL TERMINAL + OPTIONAL GMAIL</div><div>Gmail受信と独立したAPIテストができます。本編ChatGPTとの同期は別扱いです。</div></div>
         </div></div>
         <nav class="dock" aria-label="メインメニュー"></nav>
       </section>
@@ -112,7 +124,7 @@
           <button class="icon-btn" id="addCommsHeader" type="button" title="受信した通信を記録する" aria-label="通信を手動で記録"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
         </div>
         <div class="comms-layout">
-          <div class="channel-strip"><span>PRIVATE // MESSAGE ARCHIVE</span><span>LOCAL + OPTIONAL GMAIL</span></div>
+          <div class="channel-strip"><span>PRIVATE // MESSAGE ARCHIVE</span><span>LOCAL + OPTIONAL GMAIL</span></div><div class="api-banner"><div><strong>API版ディンを試す</strong><small>既存ChatGPT・Gmailの記録には影響しません</small></div><button class="api-entry" type="button" data-go="api">API試験を開く ↗</button></div>
           <div class="gmail-strip" aria-live="polite"><div class="gmail-indicator"><strong id="gmailCommsState">Gmail未接続</strong><small id="gmailCommsDetail">初回設定はホーム → 設定から</small></div><button type="button" id="gmailCommsButton">受信確認</button></div>
           <div class="scroll" id="commsScroll" aria-label="ローカルの通信履歴"><div class="thread" id="thread"></div></div>
           <div class="thread-bottom">
@@ -122,6 +134,26 @@
             <div class="reply-pending" id="pendingReplyPanel" hidden><p id="pendingReplyText">ChatGPTの通知部屋で送信した？</p><div class="reply-pending-actions"><button type="button" class="btn primary" id="confirmReplySent">送信した（履歴に記録）</button><button type="button" class="btn ghost" id="cancelReplyPending">まだ送ってない</button></div></div>
             <div class="minor-reply-actions"><button type="button" id="pasteDinReply">ディンの通常返答を貼り付ける ＋</button><button type="button" id="notifExternal">通知部屋を開く ↗</button></div>
             <div class="reply-note">※コピー後、送信はChatGPTで押してください。通常返答はGmailに来ないため手動で貼り付けます。</div>
+          </div>
+        </div>
+        <nav class="dock" aria-label="メインメニュー"></nav>
+      </section>
+      <section class="screen" id="screen-api" aria-label="API版ディンの通信テスト">
+        <div class="comms-top">
+          <div class="comms-avatar" aria-hidden="true"><svg viewBox="0 0 60 60"><path d="M11 14 24 9l5 12h4l5-12 13 5-5 19-16 19-14-19Z"/><path d="m16 29 12 6 2 12 3-12 12-6"/><path d="M24 11 27 23h6l3-12" stroke="#d4b47b"/></svg></div>
+          <div class="comms-id"><div class="comms-name">Din Djarin <span style="font:10px ui-monospace,monospace;color:var(--gold)">/ API TEST</span></div><div class="comms-sub"><span class="comms-dot"></span>EXPERIMENTAL CHANNEL / 02</div></div>
+          <button class="icon-btn" data-go="comms" type="button" title="通常通信に戻る" aria-label="通常通信に戻る"><svg viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></svg></button>
+        </div>
+        <div class="comms-layout">
+          <div class="channel-strip"><span>DIRECT MODEL LINK // EXPERIMENT</span><span>NOT CANON</span></div>
+          <div class="api-banner"><div><strong id="apiConnectionState">API接続待ち</strong><small id="apiConnectionHelp">設定で接続先と資料を登録してください</small></div><button class="api-entry" type="button" data-go="settings">設定 ↗</button></div>
+          <div class="scroll api-thread" id="apiScroll" aria-label="APIテスト会話履歴"><div class="thread" id="apiThread"></div></div>
+          <div class="thread-bottom">
+            <div class="compose-head"><span>MESSAGE // API TEST</span><span>本編には反映されません</span></div>
+            <div class="compose-line"><textarea id="apiDraft" rows="2" maxlength="4000" placeholder="API版ディンに話しかけてみる…" aria-label="APIテストの入力"></textarea><button type="button" class="btn primary" id="sendApiMessage">送信</button></div>
+            <div class="api-state" id="apiState" role="status">テスト用の独立した履歴です</div>
+            <div class="api-token-summary" id="apiTokenSummary">API使用量：まだありません</div>
+            <div class="muted-note">※この画面での往復はChatGPT側と同期しません。試験中の会話は、この端末内だけに保存されます。</div>
           </div>
         </div>
         <nav class="dock" aria-label="メインメニュー"></nav>
@@ -139,7 +171,7 @@
       </section>
       <section class="screen" id="screen-settings" aria-label="端末設定">
         <div class="header"><div class="left"><small>TERMINAL PREFERENCES</small><h1>設定</h1></div><div class="header-actions"><button class="icon-btn" data-go="home" aria-label="ホームに戻る"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button></div></div>
-        <div class="scroll"><div class="settings-body"><div class="section-note">ChatGPTへの直接送信・通常返答の自動取得・独自プッシュ通知は未実装です。Google認証を許可すると、DIN COMMSを開いている間にGmailの通信通知を受信できます。</div><div class="module"><h2>Gmailからの通信受信（試験機能）</h2>
+        <div class="scroll"><div class="settings-body"><div class="section-note">既存ChatGPTへの直接送信と通常返答の自動取得、独自プッシュ通知は未実装です。別途API版の通信テストを追加しました。</div><div class="module"><h2>Gmailからの通信受信（試験機能）</h2>
           <p>Googleの許可画面を使い、ディンのChatGPTタスク通知だけを検索します。受信済みはこのiPhone内に保存。Googleのパスワードは入力しません。APIトークンは保存しません。</p>
           <label class="field-label" for="oauthClientId">Google OAuth クライアントID</label>
           <input class="field" id="oauthClientId" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="12345-xxxxx.apps.googleusercontent.com"/>
@@ -147,7 +179,16 @@
           <div class="btnrow" style="margin-top:9px"><button class="btn ghost" type="button" id="gmailSyncNow">通信を取得</button><button class="btn ghost" type="button" id="copyOrigin">サイトURLの設定用ドメインをコピー</button></div>
           <div class="oauth-status" id="gmailSettingStatus" role="status">未接続</div>
           <div class="oauth-hint">最初にGoogle Cloudで「Gmail APIを有効化」「OAuthクライアント（ウェブアプリ）を作成」「このサイトのオリジンを許可」「自分をテストユーザーに追加」が必要です。<strong>gmail.readonly は受信トレイだけでなくGmail全体を読める権限</strong>なので、許可内容を確認してください。アプリは指定の通信件名だけを取り込みます。アプリを閉じた状態では取得・通知しません。iPhoneのホーム画面版でGoogle認証画面が開かない場合はSafariで接続を試してください。</div>
-          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.4<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
+          </div><div class="module"><h2>AI API接続（v0.5試験機能）</h2>
+          <p>APIキーはここへ入力しません！Cloudflare WorkersのSecretにだけ設定します。ここに登録するのは接続先URLと、モデルに渡す資料の文章です。既存ChatGPTのRPには影響しません。</p>
+          <label class="field-label" for="apiWorkerUrl">Cloudflare Worker URL（公開してよい接続先）</label>
+          <input class="field" id="apiWorkerUrl" type="url" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://din-comms-api.XXXXX.workers.dev"/>
+          <label class="field-label" for="apiPrompt">ディンの設定・引き継ぎ・現在地（テスト用）</label>
+          <textarea class="field" id="apiPrompt" maxlength="50000" placeholder="まずはプロジェクト指示・人格/関係・共有記憶・最新の現在地などを貼り付けてね。最初は短いテストでもOK。"></textarea>
+          <div class="api-field-note">この資料はこの端末のローカル保存領域に保存され、送信のたびにOpenAI APIへ渡されます。GitHubリポジトリへアップロードしません。パスワード・APIキー・個人情報は入れないでください。長い資料ほどAPI料金が増えます。</div>
+          <div class="btnrow"><button class="btn primary" type="button" id="saveApiSettings">API設定を保存</button><button class="btn ghost" type="button" id="resetApiSession">API通信履歴を消去</button></div>
+          <div class="oauth-hint">初回送信時に接続用の長い秘密パスフレーズを入力します（保存しません）。Worker側の <code>DIN_ACCESS_TOKEN</code> と同じ値にしてください。OpenAI APIキーは絶対にこちらへ入力しないでください。</div>
+          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存した文章はこのWebアプリのローカル保存領域にだけ残り、別のiPhone・PCとは同期しません。ブラウザデータを削除すると消える可能性があります。重要なRPログの保管には使わないでね。</p><div class="btnrow"><button class="btn ghost" id="exportData">JSON書き出し</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.5<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
       </section>
     </div>
     <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div id="messageDateField"><label class="field-label" for="modalTimestamp">メッセージの日時（省略すると現在時刻）</label><input class="field" id="modalTimestamp" type="datetime-local" /></div><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
@@ -157,11 +198,12 @@
   (() => {
     'use strict';
     const STORAGE_KEY = 'din-terminal-v01';
-    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', oauthClientId:'', commsDraftText:'', pendingReply:null};
+    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', oauthClientId:'', commsDraftText:'', pendingReply:null, apiMessages:[], apiDraftText:'', apiWorkerUrl:'', apiPrompt:''};
     let data = {...initial};
     try { const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); if (stored && typeof stored === 'object') {data = {...initial, ...stored};} } catch(e) { console.warn('Could not load local demo data',e); }
     if (!Array.isArray(data.comms)) data.comms=[];
     if (!Array.isArray(data.rp)) data.rp=[];
+    if (!Array.isArray(data.apiMessages)) data.apiMessages=[];
     if (typeof data.commsDraftText !== 'string') data.commsDraftText='';
     if (!data.pendingReply || typeof data.pendingReply.text !== 'string') data.pendingReply=null;
     const el = id => document.getElementById(id);
@@ -173,7 +215,7 @@
     let current = 'lock';
     const dockItems=[['home','ホーム','<path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/>'],['comms','通信','<path d="M20 11a8 8 0 0 1-8 8 8.8 8.8 0 0 1-4-.9L3 21l2-4.5A8 8 0 1 1 20 11Z"/>'],['rp','RP','<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h4"/>'],['out','外','<path d="M4 4h16v12H7l-3 4V4Z"/>']];
     $$('.dock').forEach(dock=>{dock.innerHTML=dockItems.map(([page,title,path])=>`<button type="button" data-go="${page}" aria-label="${title}" data-page="${page}"><svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>${title}</button>`).join('');});
-    const go = page => {if(!el('screen-'+page))return;current=page; $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+page));$$('.dock button').forEach(b=>b.classList.toggle('active',b.dataset.page===page));if(page==='comms'){renderComms();if(gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);}if(page==='rp')renderRp();if(page==='settings')renderSettings();if(page==='out')el('outNote').value=data.note||'';if(page==='lock')updatePreview();};
+    const go = page => {if(!el('screen-'+page))return;current=page; $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+page));$$('.dock button').forEach(b=>b.classList.toggle('active',b.dataset.page===(page==='api'?'comms':page)));if(page==='comms'){renderComms();if(gmailToken && Date.now()-lastGmailSync>120000)syncGmail(false);}if(page==='rp')renderRp();if(page==='api')renderApiThread();if(page==='settings')renderSettings();if(page==='out')el('outNote').value=data.note||'';if(page==='lock')updatePreview();};
     document.addEventListener('click',e=>{const target=e.target.closest('[data-go]'); if(target)go(target.dataset.go);});
     el('homeLock').addEventListener('click',()=>go('lock'));
     el('unlockBtn').addEventListener('click',()=>go('home'));
@@ -299,10 +341,64 @@
     const chatgptAllowed = url=>{try{const u=new URL(url);return u.protocol==='https:' && (u.hostname==='chatgpt.com'||u.hostname==='chat.openai.com');}catch{return false;}};
     function openExternal(which){const url=which==='rp'?data.rpUrl:data.notificationUrl;if(!url){toast('先に設定でChatGPTの部屋のURLを登録してね');return;}if(!chatgptAllowed(url)){toast('ChatGPTのHTTPS URLを入力してください');return;}window.open(url,'_blank','noopener,noreferrer');}
     el('rpExternal').addEventListener('click',()=>openExternal('rp'));el('openRp').addEventListener('click',()=>openExternal('rp'));el('openNotif').addEventListener('click',()=>openExternal('notification'));el('notifExternal').addEventListener('click',()=>openExternal('notification'));
-    function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('oauthClientId').value=data.oauthClientId||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;refreshGmailStatus();}
+    function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('oauthClientId').value=data.oauthClientId||'';el('apiWorkerUrl').value=data.apiWorkerUrl||'';el('apiPrompt').value=data.apiPrompt||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;refreshGmailStatus();}
     el('saveSettings').addEventListener('click',()=>{const rp=el('rpUrl').value.trim(),nt=el('notificationUrl').value.trim();if((rp&&!chatgptAllowed(rp))||(nt&&!chatgptAllowed(nt))){toast('chatgpt.com のHTTPS URLを指定してください');return;}data.rpUrl=rp;data.notificationUrl=nt;persist()&&toast('リンクを保存しました');});
     el('exportData').addEventListener('click',()=>{const json=JSON.stringify({...data,exportedAt:new Date().toISOString(),type:'din-comms-local-demo'},null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='din-comms-backup.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('バックアップを書き出しました');});
     el('resetData').addEventListener('click',()=>{if(!confirm('このブラウザ内の通信・RP・メモ・URLをすべて削除しますか？\nこの操作は取り消せません。'))return;data={...initial,comms:[],rp:[]};persist();renderSettings();renderComms();renderRp();updatePreview();toast('ローカルデータを削除しました');});
+    // v0.5: separate API sandbox. No automatic migration or canonical RP state mutation.
+    let apiAccessToken = '';  // kept in JS memory only; NEVER put this or OpenAI API key in GitHub, URL, or localStorage
+    let apiBusy = false;
+    const API_MAX_TEST_TURNS_PER_DAY = 20;  // local UI guard only; NOT a billing hard cap
+    const apiLimitKey=()=> 'din-api-local-calls-'+new Date().toLocaleDateString('sv-SE');
+    const apiCallsToday=()=> {try {return Math.max(0,Number(localStorage.getItem(apiLimitKey()))||0)}catch{return 0}};
+    function apiWorkerValid(value){
+      try {const u=new URL(value);return u.protocol==='https:' && /^[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/i.test(u.hostname) && (u.pathname==='/'||u.pathname==='/chat') && !u.search && !u.hash;}
+      catch{return false;}
+    }
+    function apiState(message){el('apiState').textContent=message;}
+    function renderApiThread(){
+      const t=el('apiThread');t.replaceChildren();
+      if(!data.apiMessages.length){const note=document.createElement('div');note.className='comms-empty-intro';note.textContent='API版ディンのテスト専用画面です。\nまず設定でWorkerのURLと引き継ぎ資料を入力してね。\nChatGPT本編とは独立しています。';t.append(note)}
+      else {let lastDay='';for(const m of data.apiMessages){const d=new Date(m.at);const day=isNaN(d.getTime())?'日時不明':d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});if(lastDay!==day){addText(t,'thread-day',day);lastDay=day;}
+        const wrap=document.createElement('div');wrap.className='bubble-wrap'+(m.sender==='me'?' mine':'');addText(wrap,'bubble-meta',(m.sender==='me'?'YOU':'API DIN')+' // '+formatTime(m.at));addText(wrap,'bubble',m.text);t.append(wrap);}}
+      el('apiWorkerUrl') && (el('apiConnectionState').textContent=data.apiWorkerUrl?'API接続先登録済み':'API接続待ち');
+      el('apiConnectionHelp').textContent=data.apiPrompt?'資料あり / テスト履歴は本編と分離':'資料未設定：設定にプロジェクト指示を貼ってね';
+      updateApiUsage();requestAnimationFrame(()=>el('apiScroll').scrollTop=el('apiScroll').scrollHeight);
+    }
+    function updateApiUsage(){const totals=data.apiMessages.reduce((a,m)=>{if(m.usage){a.input+=Number(m.usage.input_tokens)||0;a.output+=Number(m.usage.output_tokens)||0;}return a;},{input:0,output:0});const est=(totals.input*1+totals.output*5)/1e6;el('apiTokenSummary').textContent='累積目安：入力 '+totals.input+' / 出力 '+totals.output+' tokens ｜ 約 $'+est.toFixed(4)+'（GPT-6 Solの概算・割引等は未反映）';}
+    el('apiDraft').value=data.apiDraftText||'';
+    el('apiDraft').addEventListener('input',()=>{data.apiDraftText=el('apiDraft').value;persist();});
+    el('saveApiSettings').addEventListener('click',()=>{
+      const endpoint=el('apiWorkerUrl').value.trim();const prompt=el('apiPrompt').value.trim();
+      if(endpoint && !apiWorkerValid(endpoint)){toast('https://...workers.dev のURLを入力してください');return;}
+      if(endpoint!==data.apiWorkerUrl)apiAccessToken='';
+      data.apiWorkerUrl=endpoint;data.apiPrompt=prompt;persist();renderApiThread();toast('API設定をこの端末に保存しました');
+    });
+    el('resetApiSession').addEventListener('click',()=>{if(!confirm('APIテスト履歴だけを削除しますか？Gmailの通信とChatGPTのログは削除されません。'))return;data.apiMessages=[];persist();renderApiThread();toast('API試験履歴を削除しました');});
+    async function callApi(){
+      if(apiBusy)return;
+      const text=el('apiDraft').value.trim();if(!text){toast('メッセージを入力してね');return;}
+      if(!apiWorkerValid(data.apiWorkerUrl)){toast('設定からWorker URLを登録してね');return;}
+      if(!data.apiPrompt.trim()){toast('まず設定で指示や資料を登録してね');return;}
+      if(apiCallsToday()>=API_MAX_TEST_TURNS_PER_DAY){apiState('この端末では今日はテスト20回まで。明日再開してね（請求上限ではありません）');return;}
+      if(!apiAccessToken){const entered=prompt('Cloudflare Workersに設定した DIN_ACCESS_TOKEN を入力してください。\nOpenAIのAPIキーではありません。入力値はこの端末に保存されません。');if(entered===null)return;if(entered.length<24){apiState('DIN_ACCESS_TOKEN は24文字以上のランダムな文字列にしてね');return;}apiAccessToken=entered;}
+      apiBusy=true;el('sendApiMessage').disabled=true;apiState('API版ディンの返答を待っています…');
+      try {
+        const history=data.apiMessages.slice(-12).map(m=>({role:m.sender==='me'?'user':'assistant',content:m.text.slice(0,3000)}));
+        // Count attempts locally BEFORE request, even for an error (best-effort guard).
+        try{localStorage.setItem(apiLimitKey(),String(apiCallsToday()+1));}catch{}
+        const url=data.apiWorkerUrl.replace(/\/$/,'')+(new URL(data.apiWorkerUrl).pathname==='/chat'?'':'/chat');
+        const res=await fetch(url,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiAccessToken},body:JSON.stringify({message:text,history,instructions:data.apiPrompt})});
+        let result={};try{result=await res.json();}catch{}
+        if(!res.ok)throw new Error(result.error||('HTTP '+res.status));
+        if(typeof result.reply!=='string'||!result.reply.trim())throw new Error('返答テキストが空でした。Workerのログで応答を確認してください');
+        const now=new Date().toISOString();data.apiMessages.push({id:'api-you-'+Date.now(),sender:'me',text,at:now});data.apiMessages.push({id:'api-din-'+Date.now(),sender:'din',text:result.reply.trim(),at:new Date().toISOString(),usage:result.usage||null});
+        data.apiDraftText='';el('apiDraft').value='';persist();renderApiThread();apiState('返答を取得しました / 本編とは未同期');
+      }catch(err){apiState('送信できませんでした：'+(err?.message||'通信エラー')+'。文章は残しています。');}
+      finally{apiBusy=false;el('sendApiMessage').disabled=false;}
+    }
+    el('sendApiMessage').addEventListener('click',callApi);
+
     // Gmail web-only import. Only the public OAuth client ID is persisted;
     // access tokens stay in memory and Google passwords never touch this app.
     const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';

@@ -1,7 +1,7 @@
 {
   "name": "DIN // COMMS — Terminal",
   "short_name": "DIN COMMS",
-  "description": "This is the way — private fictional comlink UI with optional Gmail import",
+  "description": "This is the way — fictional comlink UI with Gmail import and separate API test",
   "id": "./",
   "start_url": "./",
   "scope": "./",
@@ -9,7 +9,17 @@
   "background_color": "#060a0e",
   "theme_color": "#0a1015",
   "icons": [
-    {"src":"./icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},
-    {"src":"./icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+    {
+      "src": "./icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
