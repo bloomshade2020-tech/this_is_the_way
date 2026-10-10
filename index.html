@@ -194,7 +194,7 @@
           <div class="api-field-note">この資料は端末内で暗号化して保存され、API送信時だけ復号してOpenAI APIへ渡されます。GitHubリポジトリへアップロードしません。パスワード・APIキー・個人情報は入れないでください。長い資料ほどAPI料金が増えます。</div>
           <div class="btnrow"><button class="btn primary" type="button" id="saveApiSettings">API設定を保存</button><button class="btn ghost" type="button" id="resetApiSession">API通信履歴を消去</button></div>
           <div class="oauth-hint">初回送信時に接続用の長い秘密パスフレーズを入力します（保存しません）。Worker側の <code>DIN_ACCESS_TOKEN</code> と同じ値にしてください。OpenAI APIキーは絶対にこちらへ入力しないでください。</div>
-          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存データはこの端末内でAES-GCM暗号化され、別端末とは同期しません。パスフレーズを忘れたりブラウザデータを削除したりすると復元できなくなります。定期的に暗号化バックアップを保管してください。</p><div class="btnrow"><button class="btn ghost" id="exportData">暗号化バックアップ</button><button class="btn ghost" id="vaultLock">保管庫をロック</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.5.1<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
+          </div><div class="module"><h2>ChatGPT部屋へのリンク</h2><p>既存のチャットのURLを貼り付けると、「外」画面から開けます。URLはこのブラウザ内だけに保存します。</p><label class="field-label" for="rpUrl">RP部屋のURL</label><input class="field" id="rpUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><label class="field-label" for="notificationUrl">通知部屋のURL</label><input class="field" id="notificationUrl" inputmode="url" placeholder="https://chatgpt.com/c/..."/><button class="btn primary" id="saveSettings" style="width:100%">リンクを保存</button></div><div class="module"><h2>この端末の保存データ</h2><div class="stat-list"><div class="stat"><strong id="statComms">0</strong><span>通信</span></div><div class="stat"><strong id="statRp">0</strong><span>RP記録</span></div><div class="stat"><strong>LOCAL</strong><span>保存先</span></div></div><p>保存データはこの端末内でAES-GCM暗号化され、別端末とは同期しません。パスフレーズを忘れたりブラウザデータを削除したりすると復元できなくなります。定期的に暗号化バックアップを保管してください。</p><div class="btnrow"><button class="btn ghost" id="exportData">暗号化バックアップ</button><button class="btn ghost" id="vaultLock">保管庫をロック</button><button class="btn danger" id="resetData">保存データ削除</button></div></div><div class="micro" style="text-align:center;line-height:2">DIN // COMMS UI PROTOTYPE · v0.5.2<br>NOT AFFILIATED WITH STAR WARS OR OPENAI</div></div></div><nav class="dock" aria-label="メインメニュー"></nav>
       </section>
     </div>
     <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal"><h2 class="modal-title" id="modalTitle">通信を記録する</h2><p id="modalDesc">過去のメッセージを手動で登録できます。ChatGPTへは送信されません。</p><div id="senderPick"><label class="field-label">差出人</label><div class="sender-choices"><button class="choice selected" data-sender="din">DIN / ディン</button><button class="choice" data-sender="me">YOU / あなた</button></div></div><label class="field-label" for="modalInput">メッセージ本文</label><textarea class="field area" id="modalInput" placeholder="ここに文章を貼り付ける…" maxlength="20000"></textarea><div id="messageDateField"><label class="field-label" for="modalTimestamp">メッセージの日時（省略すると現在時刻）</label><input class="field" id="modalTimestamp" type="datetime-local" /></div><div class="btnrow"><button class="btn ghost" id="cancelModal">キャンセル</button><button class="btn primary" id="saveModal">記録する</button></div></div></div>
@@ -208,7 +208,7 @@
       <div class="vault-kicker">DIN // COMMS / PRIVATE VAULT</div>
       <h1 id="vaultTitle">端末の保管庫</h1>
       <p id="vaultDescription">暗号化した記録を開くにはパスフレーズが必要です。</p>
-      <form id="vaultForm" autocomplete="off">
+      <form id="vaultForm" autocomplete="on">
         <label for="vaultPass">パスフレーズ（12文字以上を推奨）</label>
         <input id="vaultPass" type="password" autocomplete="new-password" minlength="12" required spellcheck="false" autocapitalize="off" />
         <div id="vaultConfirmArea" hidden><label for="vaultConfirm">確認用：もう一度入力</label><input id="vaultConfirm" type="password" autocomplete="new-password" spellcheck="false" autocapitalize="off" /></div>
@@ -217,6 +217,10 @@
       </form>
       <p id="vaultStatus" role="status" aria-live="polite"></p>
       <div class="vault-restore"><button type="button" id="vaultRestoreBtn">暗号化バックアップを復元</button><input type="file" accept="application/json,.json" id="vaultImportFile" hidden /></div>
+      <div class="vault-restore" id="vaultResetArea" hidden>
+        <button type="button" id="vaultResetBtn" style="color:#e8b4a2">パスフレーズを忘れた場合：この端末の保管庫を初期化</button>
+        <p class="vault-warn">暗号化された通信履歴・API試験履歴・設定は復旧できません。GitHub・Cloudflareの設定やChatGPT本編の会話は削除しません。</p>
+      </div>
       <p class="vault-foot">GitHub Pagesで動く個人用端末。暗号化は保存時の保護です。ログイン後の内容はJavaScriptとAPI送信先から読み取れるため、コードの更新元も信頼できる状態に保ってください。</p>
     </div>
   </div>

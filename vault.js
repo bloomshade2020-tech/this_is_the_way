@@ -1,4 +1,4 @@
-/* DIN COMMS v0.5.1 local encrypted vault.
+/* DIN COMMS v0.5.2 local encrypted vault.
    PBKDF2-SHA256 (310,000 iterations) -> AES-GCM 256-bit.
    Passphrase and AES key are kept only in JS memory while unlocked.
    Existing plaintext localStorage is deleted only AFTER verify-encrypt-check succeeds.
@@ -69,6 +69,8 @@
     get('vaultTitle').textContent=migrate?'旧データを暗号化して移行':'個人用保管庫を作成';
     get('vaultDescription').textContent=migrate?'以前の通信履歴やAPI設定を、この端末で暗号化して引き継ぎます。旧データは暗号化して復号確認できた後に削除します。':'今後の会話・資料を暗号化するパスフレーズを作成します。';
     get('vaultConfirmArea').hidden=false;
+    get('vaultPass').setAttribute('autocomplete','new-password');
+    get('vaultResetArea').hidden=true;
     get('vaultSubmit').textContent=migrate?'暗号化して移行':'保管庫を作成';
     get('vaultWarning').textContent='12文字以上の強いパスフレーズを設定して控えてください。忘れると復元できません。APIキーやCloudflareのアクセストークンと同じにしないでください。';
   }
@@ -76,6 +78,8 @@
     get('vaultTitle').textContent='DIN COMMSを開く';
     get('vaultDescription').textContent='保存済みの資料と通信履歴は暗号化されています。パスフレーズで解除してください。';
     get('vaultConfirmArea').hidden=true;
+    get('vaultPass').setAttribute('autocomplete','current-password');
+    get('vaultResetArea').hidden=false;
     get('vaultSubmit').textContent='ロックを解除';
   }
   async function create(pass,migrate){
@@ -118,6 +122,18 @@
       try{if(hasVault)await unlock(pass);else await create(pass,migration);}
       catch(err){status('開けませんでした：'+(hasVault?'パスフレーズまたは保存データを確認してください。':String(err?.message||err)));}
       finally{button.disabled=false;get('vaultPass').value='';get('vaultConfirm').value='';}
+    });
+    // Recovery without a passphrase is cryptographically impossible. Offer a scoped wipe,
+    // not a Safari-wide data clearing instruction (same-origin Pages may share storage).
+    get('vaultResetBtn').addEventListener('click',()=>{
+      if(localStorage.getItem(VAULT_KEY)===null){status('初期化する暗号化保管庫がありません。');return;}
+      if(!confirm('注意：DIN COMMS内の暗号化済みの通信履歴・API試験履歴・設定を完全に失います。パスフレーズなしでは復旧できません。続けますか？'))return;
+      const typed=prompt('最終確認：端末内の保管庫を初期化する場合だけ、半角英字で RESET と入力してください。');
+      if(typed!=='RESET'){status('初期化をキャンセルしました。');return;}
+      // Wipe ONLY DIN COMMS encrypted vault. Do not clear origin-wide web storage,
+      // Worker secrets, browser credentials or other hosted app storage.
+      try{localStorage.removeItem(VAULT_KEY);location.reload();}
+      catch(err){status('初期化できませんでした。端末の空き容量やSafari設定を確認してください。');}
     });
     get('vaultRestoreBtn').addEventListener('click',()=>get('vaultImportFile').click());
     get('vaultImportFile').addEventListener('change',async e=>{
