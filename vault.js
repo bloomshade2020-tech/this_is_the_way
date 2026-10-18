@@ -1,16 +1,17 @@
-/* DIN COMMS v0.5.2 local encrypted vault.
+/* VECTOR v0.6.1 local encrypted vault.
    PBKDF2-SHA256 (310,000 iterations) -> AES-GCM 256-bit.
-   Passphrase and AES key are kept only in JS memory while unlocked.
+   Passphrase is NEVER persisted. Optional remembered sessions store a non-extractable AES CryptoKey in IndexedDB on the trusted device; this is a convenience/security tradeoff.
    Existing plaintext localStorage is deleted only AFTER verify-encrypt-check succeeds.
    Encryption-at-rest is not protection from malicious code while vault is open. */
 (() => {
   'use strict';
   const VAULT_KEY='din-comms-v051-encrypted-vault';
   const LEGACY_KEY='din-terminal-v01';
+  const SESSION_DB='vector-trusted-device-v1', SESSION_STORE='keys', SESSION_ID='vault';
   const PBKDF2_ITERS=310000;
   const enc=new TextEncoder(),dec=new TextDecoder();
   const get=id=>document.getElementById(id);
-  let key=null, envelope=null, pending=Promise.resolve(),closing=false;
+  let key=null, envelope=null, pending=Promise.resolve(),closing=false,started=false;
   const toB64=b=>{const bytes=new Uint8Array(b);let str='';for(let i=0;i<bytes.length;i+=16384){str+=String.fromCharCode(...bytes.subarray(i,i+16384));}return btoa(str);};
   const fromB64=str=>Uint8Array.from(atob(str),ch=>ch.charCodeAt(0));
   const random=length=>crypto.getRandomValues(new Uint8Array(length));
@@ -32,18 +33,67 @@
   };
   const commit=v=>{localStorage.setItem(VAULT_KEY,JSON.stringify(v));envelope=v;};
   const status=s=>{get('vaultStatus').textContent=s;};
-  function startApp(data){
+  // Same-origin IndexedDB can persist a non-extractable CryptoKey via structured clone.
+  // This prevents casual key export, NOT decrypt-capable access by malicious same-origin JS
+  // or by someone using an unlocked device. Explicit manual lock deletes this entry.
+  async function sessionDb(){
+    if(!('indexedDB' in window))throw Error('このブラウザは端末内のロック解除保持に対応していません');
+    return new Promise((resolve,reject)=>{
+      const req=indexedDB.open(SESSION_DB,1);
+      req.onupgradeneeded=()=>{if(!req.result.objectStoreNames.contains(SESSION_STORE))req.result.createObjectStore(SESSION_STORE);};
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error||Error('端末内の保存領域を開けません'));
+      req.onblocked=()=>reject(Error('保存領域が他の画面で使用中です'));
+    });
+  }
+  async function sessionAction(kind,value){
+    const db=await sessionDb();
+    try{return await new Promise((resolve,reject)=>{
+      const tx=db.transaction(SESSION_STORE,kind==='get'?'readonly':'readwrite');
+      const req=kind==='get'?tx.objectStore(SESSION_STORE).get(SESSION_ID):kind==='put'?tx.objectStore(SESSION_STORE).put(value,SESSION_ID):tx.objectStore(SESSION_STORE).delete(SESSION_ID);
+      let result;
+      req.onsuccess=()=>{result=req.result;};
+      tx.oncomplete=()=>resolve(result);
+      tx.onerror=()=>reject(tx.error||Error('端末内の保存に失敗しました'));
+      tx.onabort=()=>reject(tx.error||Error('端末内の保存が中断されました'));
+    });}finally{db.close();}
+  }
+  const removeSession=()=>sessionAction('delete');
+  async function rememberUnlock(enabled){
+    if(enabled){
+      if(!key||!envelope)throw Error('まず保管庫を解除してください');
+      await sessionAction('put',{key,salt:envelope.salt,version:1});
+      const tested=await sessionAction('get');
+      if(!tested?.key||tested.salt!==envelope.salt){await removeSession().catch(()=>{});throw Error('解除情報を確認できませんでした');}
+    }else await removeSession();
+  }
+
+  async function startApp(data){
+    if(started)return;
+    if(data.stayUnlocked){
+      try{await rememberUnlock(true);}catch(err){
+        // App can still open normally. Do not silently claim restart-unlock is enabled.
+        data.stayUnlocked=false;
+        try{await vault.save(data);}catch{}
+        alert('この端末でログイン状態を維持できませんでした。次回はパスフレーズの入力が必要です。');
+      }
+    }
+    started=true;
     document.body.classList.remove('vault-locked');
     get('vaultPass').value='';get('vaultConfirm').value='';
     window.DinAppStart(data);
-    // User-selected manual lock mode. Backgrounding does NOT auto-lock after two minutes.
-    // iOS may still terminate the PWA process, requiring unlock on a fresh launch.
+    // No inactivity timer. Browser process restart uses the explicitly saved device key only.
   }
   async function flush(){await pending;}
   async function lock(){
     if(closing)return;closing=true;
     document.body.classList.add('vault-locked');
-    try{await flush();}finally{key=null;location.reload();}
+    try{await flush();await removeSession();key=null;location.reload();}
+    catch(err){
+      // A failed device-key deletion MUST NOT be reported as a successful manual lock.
+      key=null;closing=false;
+      alert('端末内のロック解除情報の削除を確認できませんでした。手動ロックは完了していません。端末を他人に渡さず、再度お試しください。');
+    }
   }
   const vault={
     save(data){
@@ -59,6 +109,7 @@
     async flush(){await flush();},
     encryptedBackup(){if(!envelope || !key)throw new Error('保管庫を先に開いてください');return JSON.parse(JSON.stringify(envelope));},
     lock,
+    rememberUnlock,
   };
   window.DinVault=vault;
   function modeSetup(migrate){
@@ -93,7 +144,7 @@
     const verified=await open(JSON.parse(localStorage.getItem(VAULT_KEY)),k);
     if(migrate)localStorage.removeItem(LEGACY_KEY);
     key=k;
-    startApp(verified);
+    await startApp(verified);
   }
   async function unlock(pass){
     let e;
@@ -103,13 +154,32 @@
     const data=await open(e,k);key=k;envelope=e;
     // If a legacy key still exists after restoring a vault, discard it after successful decryption.
     if(localStorage.getItem(LEGACY_KEY)!==null)localStorage.removeItem(LEGACY_KEY);
-    startApp(data);
+    await startApp(data);
+  }
+  async function tryAutoUnlock(){
+    const raw=localStorage.getItem(VAULT_KEY);
+    if(!raw||started)return;
+    let entry;
+    try{entry=await sessionAction('get');}catch{return;}
+    if(!entry?.key)return;
+    try{
+      const e=JSON.parse(raw);
+      if(!validEnvelope(e)||entry.salt!==e.salt)throw Error('古い解除情報です');
+      const data=await open(e,entry.key);
+      if(data.stayUnlocked!==true)throw Error('端末のロック解除維持が無効です');
+      key=entry.key;envelope=e;
+      await startApp(data);
+    }catch{
+      key=null;envelope=null;
+      await removeSession().catch(()=>{});
+      status('保存した解除情報が利用できないため、パスフレーズを入力してください。');
+    }
   }
   function init(){
     if(!window.crypto?.subtle){status('暗号化APIが使えません。HTTPSで起動してください。');get('vaultSubmit').disabled=true;return;}
     const migration=!localStorage.getItem(VAULT_KEY) && localStorage.getItem(LEGACY_KEY)!==null;
     const hasVault=localStorage.getItem(VAULT_KEY)!==null;
-    if(hasVault)modeUnlock();else modeSetup(migration);
+    if(hasVault){modeUnlock();tryAutoUnlock().catch(()=>{});}else modeSetup(migration);
     get('vaultForm').addEventListener('submit',async e=>{
       e.preventDefault();const pass=get('vaultPass').value;
       if(pass.length<12){status('パスフレーズは12文字以上にしてください。');return;}
@@ -121,14 +191,14 @@
     });
     // Recovery without a passphrase is cryptographically impossible. Offer a scoped wipe,
     // not a Safari-wide data clearing instruction (same-origin Pages may share storage).
-    get('vaultResetBtn').addEventListener('click',()=>{
+    get('vaultResetBtn').addEventListener('click',async()=>{
       if(localStorage.getItem(VAULT_KEY)===null){status('初期化する暗号化保管庫がありません。');return;}
       if(!confirm('注意：DIN COMMS内の暗号化済みの通信履歴・API試験履歴・設定を完全に失います。パスフレーズなしでは復旧できません。続けますか？'))return;
       const typed=prompt('最終確認：端末内の保管庫を初期化する場合だけ、半角英字で RESET と入力してください。');
       if(typed!=='RESET'){status('初期化をキャンセルしました。');return;}
       // Wipe ONLY DIN COMMS encrypted vault. Do not clear origin-wide web storage,
       // Worker secrets, browser credentials or other hosted app storage.
-      try{localStorage.removeItem(VAULT_KEY);location.reload();}
+      try{await removeSession();localStorage.removeItem(VAULT_KEY);location.reload();}
       catch(err){status('初期化できませんでした。端末の空き容量やSafari設定を確認してください。');}
     });
     get('vaultRestoreBtn').addEventListener('click',()=>get('vaultImportFile').click());
@@ -140,7 +210,7 @@
         if(!validEnvelope(obj))throw new Error('VECTOR対応の暗号化バックアップではありません。');
         if(!confirm('現在の暗号化保管庫をバックアップ内容で上書きします。現在の記録は復元できなくなる可能性があります。続けますか？'))return;
         // Protect against accidental overwrites if the user has not backed up.
-        localStorage.setItem(VAULT_KEY,JSON.stringify(obj));
+        await removeSession();localStorage.setItem(VAULT_KEY,JSON.stringify(obj));
         // Note: importing a backup does not restore old Gmail API access.
         location.reload();
       }catch(err){status('復元できません：'+(err?.message||'ファイル形式を確認してください。'));}
