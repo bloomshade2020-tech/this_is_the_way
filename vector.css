@@ -18,3 +18,15 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 
 /* v0.6.1: Only new security toggles; existing adopted visual design unchanged. */
 .settings-detail .option-line{display:flex;gap:11px;align-items:flex-start;padding:12px 0 6px;cursor:pointer}.settings-detail .option-line input[type=checkbox]{appearance:auto;-webkit-appearance:checkbox;accent-color:var(--sage-deep);width:19px;min-width:19px;height:19px;margin:2px 0 0;padding:0;flex:0 0 auto}.option-line span{flex:1;min-width:0}.option-line strong{display:block;font-size:14px;color:#292c29;line-height:1.55}.option-line small{display:block;font-size:11px;line-height:1.7;color:#777c74;margin-top:5px}.settings-detail .footnote[role=status]{color:#466d51}
+
+/* VECTOR v0.7: approved HOME layout repair; no palette or layout redesign. */
+.home-mini-row .home-card{min-width:0;overflow:hidden;}
+.home-mini-row .home-card strong{z-index:3;bottom:31px;left:14px;right:14px;font-size:clamp(11px,3vw,14px);letter-spacing:.035em;white-space:nowrap;}
+.home-mini-row .home-card .card-accent{bottom:17px;left:14px;}
+.home-mini-row .home-card .card-arrow{right:10px;bottom:64px;font-size:24px;}
+.home-mini-row .squares{left:auto;right:12px;top:23%;opacity:.5;transform:scale(.83);transform-origin:top right;}
+.home-mini-row .gear-icon{left:auto;right:7px;top:20%;color:#484f4a;opacity:.46;}
+.card-here .card-arrow{top:24px;right:23px;bottom:auto;z-index:4;}
+.attach-btn svg{display:block;stroke-linecap:round;stroke-linejoin:round;}
+.notify-actions{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
+@media(max-width:380px){.home-mini-row .home-card strong{font-size:11px;letter-spacing:0}.home-mini-row .ordinal i{width:10px}}
