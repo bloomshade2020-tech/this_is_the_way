@@ -1,197 +1,104 @@
-  window.DinAppStart = function dinAppStart(vaultData) {
-    (() => {
-    'use strict';
-    const STORAGE_KEY = 'din-terminal-v01';
-    const initial = {comms:[], rp:[], note:'', rpUrl:'', notificationUrl:'', commsDraftText:'', pendingReply:null, apiMessages:[], apiDraftText:'', apiWorkerUrl:'', apiPrompt:''};
-    let data = {...initial, ...(vaultData && typeof vaultData==='object' ? vaultData : {})};
-    delete data.oauthClientId;
-    if (!Array.isArray(data.comms)) data.comms=[];
-    if (!Array.isArray(data.rp)) data.rp=[];
-    if (!Array.isArray(data.apiMessages)) data.apiMessages=[];
-    if (typeof data.commsDraftText !== 'string') data.commsDraftText='';
-    if (!data.pendingReply || typeof data.pendingReply.text !== 'string') data.pendingReply=null;
-    const el = id => document.getElementById(id);
-    const $ = (selector, root=document) => root.querySelector(selector);
-    const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
-    const persist = () => { window.DinVault.save(data).catch(()=>toast('暗号化保存に失敗しました。保管庫を確認してください。')); return true; };
-    const formatTime = t => { const d=new Date(t); return isNaN(d.getTime())?'--:--':d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); };
-    const escapeText = (s) => String(s ?? '');
-    let current = 'lock';
-    const dockItems=[['home','ホーム','<path d="M3 10l9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/>'],['comms','通信','<path d="M20 11a8 8 0 0 1-8 8 8.8 8.8 0 0 1-4-.9L3 21l2-4.5A8 8 0 1 1 20 11Z"/>'],['rp','RP','<path d="M5 4h14v16H5zM9 9h6M9 13h6M9 17h4"/>'],['out','外','<path d="M4 4h16v12H7l-3 4V4Z"/>']];
-    $$('.dock').forEach(dock=>{dock.innerHTML=dockItems.map(([page,title,path])=>`<button type="button" data-go="${page}" aria-label="${title}" data-page="${page}"><svg viewBox="0 0 24 24" aria-hidden="true">${path}</svg>${title}</button>`).join('');});
-    const go = page => {if(!el('screen-'+page))return;current=page; $$('.screen').forEach(s=>s.classList.toggle('active',s.id==='screen-'+page));$$('.dock button').forEach(b=>b.classList.toggle('active',b.dataset.page===(page==='api'?'comms':page)));if(page==='comms')renderComms();if(page==='rp')renderRp();if(page==='api')renderApiThread();if(page==='settings')renderSettings();if(page==='out')el('outNote').value=data.note||'';if(page==='lock')updatePreview();};
-    document.addEventListener('click',e=>{const target=e.target.closest('[data-go]'); if(target)go(target.dataset.go);});
-    el('homeLock').addEventListener('click',()=>go('lock'));
-    el('unlockBtn').addEventListener('click',()=>go('home'));
-    let startY=0;el('screen-lock').addEventListener('touchstart',e=>{startY=e.changedTouches[0].clientY;},{passive:true});el('screen-lock').addEventListener('touchend',e=>{if(startY-e.changedTouches[0].clientY>45)go('home');},{passive:true});
-    const updateClock=()=>{let d=new Date();let time=d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});el('statusTime').textContent=time;el('lockClock').textContent=time;el('lockDate').textContent=d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}).replaceAll('/','.').toUpperCase();};updateClock();setInterval(updateClock,30000);
-    let toastId=0;
-    function toast(msg){let n=el('toast');n.textContent=msg;n.classList.add('show');const id=++toastId;setTimeout(()=>{if(toastId===id)n.classList.remove('show');},3100);}
-    function updatePreview(){let latest=data.comms.at(-1);el('lockPreview').textContent=latest ? ((latest.sender==='din'?'DIN':'YOU')+' / '+escapeText(latest.text).slice(0,85)) : 'まだ通信履歴はありません。\n過去の通信をアーカイブできます。API版との会話は「API試験」を開いてください。';}
-    function addText(parent,cls,text,tag='div'){let node=document.createElement(tag);node.className=cls;node.textContent=escapeText(text);parent.append(node);return node;}
-    function renderComms(){
-      const t=el('thread');t.replaceChildren();let previousDay='';
-      function addMessage(item,demo=false){
-        const wrap=document.createElement('div');wrap.className='bubble-wrap'+(item.sender==='me'?' mine':'')+(demo?' demo':'');
-        addText(wrap,'bubble-meta',demo?(item.sender==='me'?'YOU · SAMPLE':'DIN · SAMPLE'):(item.sender==='me'?'YOU · '+formatTime(item.at):'DIN · '+formatTime(item.at)));
-        addText(wrap,'bubble',item.text);t.append(wrap);
-      }
-      if(!data.comms.length){
-        const msg=document.createElement('div');msg.className='comms-empty-intro';
-        addText(msg,'','NO TRANSMISSIONS YET','strong');
-        addText(msg,'','右上の「＋」からChatGPTの通信文を貼り付けてみよう。下の吹き出しは表示例で、ディンの実際の発言ではありません。');t.append(msg);
-        addMessage({sender:'din',text:'ここに、ディンから届いた通信が表示されます。'},true);
-        addMessage({sender:'me',text:'こちらに、あなたが記録した返信が表示されます。'},true);
-      }else{
-        data.comms.forEach(item=>{
-          const timestamp=new Date(item.at);
-          const day=isNaN(timestamp.getTime())?'日付不明':timestamp.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});
-          if(day!==previousDay){addText(t,'thread-day',day);previousDay=day;}
-          addMessage(item);
-        });
-      }
-      requestAnimationFrame(()=>{el('commsScroll').scrollTop=el('commsScroll').scrollHeight;});updatePreview();
-    }
-    function renderRp(){const r=el('rpLog');r.replaceChildren();if(!data.rp.length){let empty=document.createElement('div');empty.className='rp-empty';empty.textContent='まだRPの記録はありません。\n下に文章を入力すると、会話とは違う「本文形式」で表示を試せます。\n\n※ここではディンから返答は生成されません。';r.append(empty);}else{data.rp.forEach(item=>{let w=document.createElement('article');w.className='rp-entry'+(item.sender==='din'?' din':'');addText(w,'rp-speaker',item.sender==='din'?'DIN DJARIN':'YOU');addText(w,'rp-words',item.text);addText(w,'rp-time',formatTime(item.at));r.append(w);});}requestAnimationFrame(()=>{el('rpScroll').scrollTop=el('rpScroll').scrollHeight;});}
-    let mode='comms',sender='din';
-    function modalOpen(which){mode=which;sender='din';el('modalTitle').textContent=which==='rp'?'ディンの返答を取り込む':'通信を手動で記録';el('modalDesc').textContent=which==='rp'?'ChatGPTからコピーした返答などを、RP画面の表示確認用として手動登録できます。':'ChatGPTで受け取った通信や送った文章をここに手動記録できます。自動同期・送信はしません。';el('senderPick').hidden=which==='rp';el('messageDateField').hidden=which==='rp';el('modalTimestamp').value='';$$('.choice').forEach(c=>c.classList.toggle('selected',c.dataset.sender==='din'));el('modalInput').value='';el('overlay').classList.add('open');el('modalInput').focus();}
-    function modalClose(){el('overlay').classList.remove('open');}
-    el('addCommsHeader').addEventListener('click',()=>modalOpen('comms'));el('addDinRp').addEventListener('click',()=>modalOpen('rp'));
-    $$('.choice').forEach(c=>c.addEventListener('click',()=>{sender=c.dataset.sender;$$('.choice').forEach(x=>x.classList.toggle('selected',x===c));}));
-    el('cancelModal').addEventListener('click',modalClose);el('overlay').addEventListener('click',e=>{if(e.target===el('overlay'))modalClose();});
-    document.addEventListener('keydown',e=>{if(e.key==='Escape')modalClose();});
-    el('saveModal').addEventListener('click',()=>{const text=el('modalInput').value.trim();if(!text){toast('文章を入力してください');return;}
-      const at=mode==='comms' && el('modalTimestamp').value?new Date(el('modalTimestamp').value):new Date();
-      if(isNaN(at.getTime())){toast('日時を確認してください');return;}
-      const record={id:Date.now(),sender:mode==='rp'?'din':sender,text,at:at.toISOString()};
-      (mode==='rp'?data.rp:data.comms).push(record);
-      if(mode==='comms')data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
-      if(!persist())return;modalClose();if(mode==='rp')renderRp();else renderComms();toast('この端末に記録しました（送信はしていません）');
-    });
-    // v0.4: preserve the outgoing draft across an external app switch.
-    el('commsDraft').value = data.commsDraftText;
-    el('commsDraft').addEventListener('input',()=>{data.commsDraftText=el('commsDraft').value;persist();});
-    function refreshPendingReply(){
-      const pending=data.pendingReply;
-      el('pendingReplyPanel').hidden=!pending;
-      if(pending)el('pendingReplyText').textContent='前回の返信候補：「'+pending.text.slice(0,54)+(pending.text.length>54?'…':'')+'」\nChatGPTで送信できた？';
-    }
-    refreshPendingReply();
-    const getReplyText=()=>el('commsDraft').value.trim();
-    function notificationLinkReady(){
-      if(!data.notificationUrl || !chatgptAllowed(data.notificationUrl)){
-        toast('先に「設定」でChatGPT通知部屋のURLを登録してね');
-        go('settings');return false;
-      }
-      return true;
-    }
-    function preparePendingReply(text, mode){
-      data.commsDraftText=text;
-      data.pendingReply={text,at:new Date().toISOString(),mode};
-      if(!persist())return false;
-      refreshPendingReply();return true;
-    }
-    async function copyReplyAndOpen(){
-      const text=getReplyText();
-      if(!text){toast('ディンへの返信を入力してね');return;}
-      if(!notificationLinkReady())return;
-      // Clipboard needs user activation. No network request and no URL query carries reply text.
-      try {await navigator.clipboard.writeText(text);} catch(e){toast('コピーが許可されませんでした。右の「コピー」で試してね');return;}
-      if(!preparePendingReply(text,'clipboard'))return;
-      // Same-tab navigation avoids popup blocking on iPhone PWAs; sending remains a manual action.
-      window.location.assign(data.notificationUrl);
-    }
-    el('replyViaChatgpt').addEventListener('click',copyReplyAndOpen);
-    el('copyCommsDraft').addEventListener('click',()=>copyString(el('commsDraft').value));
-    el('confirmReplySent').addEventListener('click',()=>{
-      const pending=data.pendingReply;if(!pending)return;
-      // Only a user confirmation may mark the ChatGPT-side send as completed.
-      const id='reply-confirmed:'+pending.at;
-      if(!data.comms.some(m=>m.id===id)){
-        data.comms.push({id,sender:'me',text:pending.text,at:new Date().toISOString(),sendStatus:'user-confirmed'});
-        data.comms.sort((a,b)=>Date.parse(a.at)-Date.parse(b.at));
-      }
-      if(el('commsDraft').value.trim()===pending.text){el('commsDraft').value='';data.commsDraftText='';}
-      data.pendingReply=null;persist();refreshPendingReply();renderComms();toast('送信済みとして端末内に記録しました（手動確認）');
-    });
-    el('cancelReplyPending').addEventListener('click',()=>{
-      data.pendingReply=null;persist();refreshPendingReply();toast('送信扱いにはせず、下書きを残しました');
-    });
-    el('pasteDinReply').addEventListener('click',()=>{
-      modalOpen('comms');
-      el('modalTitle').textContent='ディンの通常返答を取り込む';
-      el('modalDesc').textContent='ChatGPTでディンから返ってきた通常の返答をコピーして貼り付けてね。通常返答は旧ChatGPT版から自動取得されないため、手動で保存します。';
-    });
-    // The unsafe prefilled ChatGPT deep link was removed in v0.5.1; RP text is never added to URLs.
-
-    el('saveRpDraft').addEventListener('click',()=>{const text=el('rpDraft').value.trim();if(!text){toast('下書きを入力してください');return;}data.rp.push({id:Date.now(),sender:'me',text,at:new Date().toISOString()});if(!persist())return;el('rpDraft').value='';renderRp();toast('画面に記録しました（ChatGPTへは未送信）');});
-    async function copyString(str){if(!str){toast('コピーする内容がありません');return;}try{await navigator.clipboard.writeText(str);toast('コピーしました');}catch(e){toast('自動コピーできません。文章を選択してコピーしてください。');}}
-    el('copyDraft').addEventListener('click',()=>copyString(el('rpDraft').value));
-    el('copyOut').addEventListener('click',()=>copyString(el('outNote').value));
-    el('saveOut').addEventListener('click',()=>{data.note=el('outNote').value;persist()&&toast('メモを保存しました');});
-    const chatgptAllowed = url=>{try{const u=new URL(url);return u.protocol==='https:' && (u.hostname==='chatgpt.com'||u.hostname==='chat.openai.com');}catch{return false;}};
-    function openExternal(which){const url=which==='rp'?data.rpUrl:data.notificationUrl;if(!url){toast('先に設定でChatGPTの部屋のURLを登録してね');return;}if(!chatgptAllowed(url)){toast('ChatGPTのHTTPS URLを入力してください');return;}window.open(url,'_blank','noopener,noreferrer');}
-    el('rpExternal').addEventListener('click',()=>openExternal('rp'));el('openRp').addEventListener('click',()=>openExternal('rp'));el('openNotif').addEventListener('click',()=>openExternal('notification'));el('notifExternal').addEventListener('click',()=>openExternal('notification'));
-    function renderSettings(){el('rpUrl').value=data.rpUrl||'';el('notificationUrl').value=data.notificationUrl||'';el('apiWorkerUrl').value=data.apiWorkerUrl||'';el('apiPrompt').value=data.apiPrompt||'';el('statComms').textContent=data.comms.length;el('statRp').textContent=data.rp.length;}
-    el('saveSettings').addEventListener('click',()=>{const rp=el('rpUrl').value.trim(),nt=el('notificationUrl').value.trim();if((rp&&!chatgptAllowed(rp))||(nt&&!chatgptAllowed(nt))){toast('chatgpt.com のHTTPS URLを指定してください');return;}data.rpUrl=rp;data.notificationUrl=nt;persist()&&toast('リンクを保存しました');});
-    el('exportData').addEventListener('click',async()=>{try{await window.DinVault.flush();const json=JSON.stringify(window.DinVault.encryptedBackup(),null,2);const blob=new Blob([json],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='din-comms-encrypted-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);toast('暗号化バックアップを書き出しました。復元にはパスフレーズが必要です');}catch(err){toast('保存の完了を確認できませんでした。しばらくしてから再試行してください。');}});
-    el('vaultLock').addEventListener('click',()=>window.DinVault.lock());
-    el('resetData').addEventListener('click',()=>{if(!confirm('このブラウザ内の通信・RP・メモ・URLをすべて削除しますか？\nこの操作は取り消せません。'))return;data={...initial,comms:[],rp:[]};window.DinVault.save(data).then(()=>{renderSettings();renderComms();renderRp();updatePreview();toast('暗号化して初期化しました');}).catch(()=>toast('保存に失敗しました。データを確認してください。'));});
-    // v0.5: separate API sandbox. No automatic migration or canonical RP state mutation.
-    let apiAccessToken = '';  // kept in JS memory only; NEVER put this or OpenAI API key in GitHub, URL, or localStorage
-    let apiBusy = false;
-    const API_MAX_TEST_TURNS_PER_DAY = 20;  // local UI guard only; NOT a billing hard cap
-    const apiLimitKey=()=> 'din-api-local-calls-'+new Date().toLocaleDateString('sv-SE');
-    const apiCallsToday=()=> {try {return Math.max(0,Number(localStorage.getItem(apiLimitKey()))||0)}catch{return 0}};
-    function apiWorkerValid(value){
-      try {const u=new URL(value);return u.protocol==='https:' && /^[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/i.test(u.hostname) && (u.pathname==='/'||u.pathname==='/chat') && !u.search && !u.hash;}
-      catch{return false;}
-    }
-    function apiState(message){el('apiState').textContent=message;}
-    function renderApiThread(){
-      const t=el('apiThread');t.replaceChildren();
-      if(!data.apiMessages.length){const note=document.createElement('div');note.className='comms-empty-intro';note.textContent='API版ディンのテスト専用画面です。\nまず設定でWorkerのURLと引き継ぎ資料を入力してね。\nChatGPT本編とは独立しています。';t.append(note)}
-      else {let lastDay='';for(const m of data.apiMessages){const d=new Date(m.at);const day=isNaN(d.getTime())?'日時不明':d.toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric',weekday:'short'});if(lastDay!==day){addText(t,'thread-day',day);lastDay=day;}
-        const wrap=document.createElement('div');wrap.className='bubble-wrap'+(m.sender==='me'?' mine':'');addText(wrap,'bubble-meta',(m.sender==='me'?'YOU':'API DIN')+' // '+formatTime(m.at));addText(wrap,'bubble',m.text);t.append(wrap);}}
-      el('apiWorkerUrl') && (el('apiConnectionState').textContent=data.apiWorkerUrl?'API接続先登録済み':'API接続待ち');
-      el('apiConnectionHelp').textContent=data.apiPrompt?'資料あり / テスト履歴は本編と分離':'資料未設定：設定にプロジェクト指示を貼ってね';
-      updateApiUsage();requestAnimationFrame(()=>el('apiScroll').scrollTop=el('apiScroll').scrollHeight);
-    }
-    function updateApiUsage(){const totals=data.apiMessages.reduce((a,m)=>{if(m.usage){a.input+=Number(m.usage.input_tokens)||0;a.output+=Number(m.usage.output_tokens)||0;}return a;},{input:0,output:0});const est=(totals.input*1+totals.output*5)/1e6;el('apiTokenSummary').textContent='累積目安：入力 '+totals.input+' / 出力 '+totals.output+' tokens ｜ 約 $'+est.toFixed(4)+'（GPT-6 Solの概算・割引等は未反映）';}
-    el('apiDraft').value=data.apiDraftText||'';
-    el('apiDraft').addEventListener('input',()=>{data.apiDraftText=el('apiDraft').value;persist();});
-    el('saveApiSettings').addEventListener('click',()=>{
-      const endpoint=el('apiWorkerUrl').value.trim();const prompt=el('apiPrompt').value.trim();
-      if(endpoint && !apiWorkerValid(endpoint)){toast('https://...workers.dev のURLを入力してください');return;}
-      if(endpoint!==data.apiWorkerUrl)apiAccessToken='';
-      data.apiWorkerUrl=endpoint;data.apiPrompt=prompt;persist();renderApiThread();toast('API設定をこの端末に保存しました');
-    });
-    el('resetApiSession').addEventListener('click',()=>{if(!confirm('APIテスト履歴だけを削除しますか？旧通信アーカイブとChatGPTのログは削除されません。'))return;data.apiMessages=[];persist();renderApiThread();toast('API試験履歴を削除しました');});
-    async function callApi(){
-      if(apiBusy)return;
-      const text=el('apiDraft').value.trim();if(!text){toast('メッセージを入力してね');return;}
-      if(!apiWorkerValid(data.apiWorkerUrl)){toast('設定からWorker URLを登録してね');return;}
-      if(!data.apiPrompt.trim()){toast('まず設定で指示や資料を登録してね');return;}
-      if(apiCallsToday()>=API_MAX_TEST_TURNS_PER_DAY){apiState('この端末では今日はテスト20回まで。明日再開してね（請求上限ではありません）');return;}
-      if(!apiAccessToken){const entered=prompt('Cloudflare Workersに設定した DIN_ACCESS_TOKEN を入力してください。\nOpenAIのAPIキーではありません。入力値はこの端末に保存されません。');if(entered===null)return;if(entered.length<24){apiState('DIN_ACCESS_TOKEN は24文字以上のランダムな文字列にしてね');return;}apiAccessToken=entered;}
-      apiBusy=true;el('sendApiMessage').disabled=true;apiState('API版ディンの返答を待っています…');
-      try {
-        const history=data.apiMessages.slice(-12).map(m=>({role:m.sender==='me'?'user':'assistant',content:m.text.slice(0,3000)}));
-        // Count attempts locally BEFORE request, even for an error (best-effort guard).
-        try{localStorage.setItem(apiLimitKey(),String(apiCallsToday()+1));}catch{}
-        const url=data.apiWorkerUrl.replace(/\/$/,'')+(new URL(data.apiWorkerUrl).pathname==='/chat'?'':'/chat');
-        const res=await fetch(url,{method:'POST',mode:'cors',cache:'no-store',headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiAccessToken},body:JSON.stringify({message:text,history,instructions:data.apiPrompt})});
-        let result={};try{result=await res.json();}catch{}
-        if(!res.ok)throw new Error(result.error||('HTTP '+res.status));
-        if(typeof result.reply!=='string'||!result.reply.trim())throw new Error('返答テキストが空でした。Workerのログで応答を確認してください');
-        const now=new Date().toISOString();data.apiMessages.push({id:'api-you-'+Date.now(),sender:'me',text,at:now});data.apiMessages.push({id:'api-din-'+Date.now(),sender:'din',text:result.reply.trim(),at:new Date().toISOString(),usage:result.usage||null});
-        data.apiDraftText='';el('apiDraft').value='';persist();renderApiThread();apiState('返答を取得しました / 本編とは未同期');
-      }catch(err){apiState('送信できませんでした：'+(err?.message||'通信エラー')+'。文章は残しています。');}
-      finally{apiBusy=false;el('sendApiMessage').disabled=false;}
-    }
-    el('sendApiMessage').addEventListener('click',callApi);
-
-    updatePreview();
-    if('serviceWorker' in navigator && location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
-  })();
-  };
+/* VECTOR v0.6 — UI + private API prototype. Never put secrets in this file. */
+window.DinAppStart = function DinAppStart(unlocked){
+'use strict';
+const $=id=>document.getElementById(id);
+const initial={comms:[],rp:[],apiMessages:[],backstageMessages:[],apiWorkerUrl:'https://din-comms-api.bloomshade-2020.workers.dev',apiPrompt:'',documents:[],sceneMemory:'',apiDraftText:'',rpDraftText:'',backstageDraftText:'',apiDraftPhoto:null,rpDraftPhoto:null,backstageDraftPhoto:null,rpUrl:'',notificationUrl:'',timeTheme:'auto',inputRate:1,outputRate:5};
+const data={...initial,...(unlocked&&typeof unlocked==='object'?unlocked:{})};delete data.oauthClientId;
+for(const k of ['comms','rp','apiMessages','backstageMessages','documents'])if(!Array.isArray(data[k]))data[k]=[];
+for(const k of ['apiDraftText','rpDraftText','backstageDraftText','apiPrompt','sceneMemory'])if(typeof data[k]!=='string')data[k]='';
+let active='home',busy=false,token='',toastTimer=null,saveTimer=null;const lastSubmit={comms:0,here:0,backstage:0};
+// Preserve totals even when an individual transcript is intentionally cleared.
+if(!data.usageTotals||typeof data.usageTotals!=='object'){
+ data.usageTotals={};for(const [room,k] of Object.entries({comms:'apiMessages',here:'rp',backstage:'backstageMessages'})){
+  data.usageTotals[room]=data[k].reduce((a,m)=>{if(m.usage){a.input+=Number(m.usage.input_tokens)||0;a.output+=Number(m.usage.output_tokens)||0;}return a;},{input:0,output:0});
+ }
+}
+for(const room of ['comms','here','backstage'])if(!data.usageTotals[room])data.usageTotals[room]={input:0,output:0};
+const rooms={comms:{items:'apiMessages',draft:'apiDraftText',photo:'apiDraftPhoto',input:'commsDraft',preview:'commsPhotoPreview',scroll:'commsScroll',thread:'commsThread'},here:{items:'rp',draft:'rpDraftText',photo:'rpDraftPhoto',input:'hereDraft',preview:'herePhotoPreview',scroll:'hereScroll',thread:'hereThread'},backstage:{items:'backstageMessages',draft:'backstageDraftText',photo:'backstageDraftPhoto',input:'backstageDraft',preview:'backstagePhotoPreview',scroll:'backstageScroll',thread:'backstageThread'}};
+const uid=()=>typeof crypto.randomUUID==='function'?crypto.randomUUID():('v-'+Date.now()+'-'+Math.random().toString(36).slice(2));
+const make=(tag,cls,txt)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n;};
+const msgTime=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'--:--':d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});};
+const msgDay=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'DATE':d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});};
+function notice(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,3600);}
+function cloneData(){return JSON.parse(JSON.stringify(data));}
+const save=async()=>window.DinVault.save(data);
+function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(()=>notice('保存できません。端末の空き容量と保管庫を確認してください')),350);}
+function nav(where){if(!['home','comms','here','backstage','settings'].includes(where))return;
+  active=where;document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='screen-'+where));
+  $('screenTitle').textContent=where==='home'?'':where.toUpperCase();$('backHome').hidden=where==='home';$('toBackstage').hidden=where==='home'||where==='backstage'||where==='settings';
+  $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);}
+function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildren();let list=data[r.items];
+  if(!list.length){box.append(make('p','empty-note',room==='comms'?'まだ通信履歴はありません。':room==='here'?'まだ記録はありません。':'チャッピーとの相談をここから始められます。'));}
+  if(room==='comms'){
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('div','chat-turn'+(m.sender==='me'?' mine':''));w.append(make('div','chat-meta',(m.sender==='me'?'YOU':'DIN')+'  /  '+msgTime(m.at)));w.append(make('div','chat-bubble',m.text||''));addPhoto(w,m.photo,'chat-photo');box.append(w);}
+  }else if(room==='here'){
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('article','here-turn'+(m.sender==='me'?' you':' din'));const head=make('div','here-head');head.append(make('span','speaker-dot'));head.append(make('strong','',m.sender==='me'?'YOU':'DIN'));const more=make('button','more-btn','···');more.type='button';more.title='日時と記録IDを確認';more.addEventListener('click',()=>{const info=(m.sender==='me'?'YOU':'DIN')+'\n'+(m.at||'日時不明')+'\n'+(m.id||'IDなし');if(confirm(info+'\n\n記録情報をコピーしますか？'))navigator.clipboard?.writeText(info).then(()=>notice('記録情報をコピーしました')).catch(()=>notice(info));});head.append(more);w.append(head);w.append(make('div','here-body',m.text||''));addPhoto(w,m.photo,'here-photo');box.append(w);}
+  }else{
+    for(const m of list){const w=make('article','back-turn'+(m.sender==='me'?' mine':''));w.append(make('div','back-head',(m.sender==='me'?'YOU':'CHAPPY')+'  /  '+msgTime(m.at)));w.append(make('div','back-body',m.text||''));addPhoto(w,m.photo,'here-photo');box.append(w);}
+  }
+  renderPhotoPreview(room);updateUsage();requestAnimationFrame(()=>$(r.scroll).scrollTop=$(r.scroll).scrollHeight);
+}
+function addPhoto(parent,photo,cls){if(typeof photo!=='string'||!photo.startsWith('data:image/jpeg;base64,'))return;const i=make('img',cls);i.src=photo;i.alt='添付された写真';i.loading='lazy';parent.append(i);}
+function renderPhotoPreview(room){const r=rooms[room],node=$(r.preview),photo=data[r.photo];node.replaceChildren();node.hidden=!photo;if(!photo)return;addPhoto(node,photo,'');const b=make('button','', '写真を外す');b.type='button';b.addEventListener('click',async()=>{data[r.photo]=null;renderPhotoPreview(room);try{await save();}catch{notice('保存に失敗しました');}});node.append(b);}
+async function readPhoto(file){if(!file.type.startsWith('image/')||file.size>18000000)throw Error('18MB以内の画像を選んでください');let bitmap;try{bitmap=await createImageBitmap(file);}catch{throw Error('この画像形式は読み込めません');}
+  try{let scale=Math.min(1,960/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);let photo='';for(const q of [.77,.62,.49,.36,.25]){photo=canvas.toDataURL('image/jpeg',q);if(photo.length<225000)break;}if(photo.length>225000)throw Error('圧縮後も画像が大きいため送信できません');return photo;}finally{bitmap.close?.();}}
+for(const room of Object.keys(rooms)){
+  const r=rooms[room];$(r.input).value=data[r.draft]||'';$(r.input).addEventListener('input',()=>{data[r.draft]=$(r.input).value;autosave();});
+  const fileInput=$(room+'Photo');fileInput.addEventListener('change',async()=>{const f=fileInput.files?.[0];fileInput.value='';if(!f)return;try{data[r.photo]=await readPhoto(f);renderPhotoPreview(room);await save();notice('写真を添付しました。送信前は端末内だけに保存されます。');}catch(e){notice('写真を添付できません：'+e.message);}});
+  document.querySelector('[data-send="'+room+'"]').addEventListener('click',()=>sendRoom(room));
+}
+function usageFor(room){return data.usageTotals[room]||{input:0,output:0};}
+function price(u){return (u.input*(Number(data.inputRate)||0)+u.output*(Number(data.outputRate)||0))/1000000;}
+function usageText(u){return `IN ${u.input.toLocaleString()} / OUT ${u.output.toLocaleString()} tokens`};
+function updateUsage(){let all={input:0,output:0};for(const room of Object.keys(rooms)){const u=usageFor(room);all.input+=u.input;all.output+=u.output;const node=$(room+'Usage');node.replaceChildren(make('span','',usageText(u)),make('span','',`≈ $${price(u).toFixed(4)}`));}
+ $('usageDetails').replaceChildren(make('p','usage-lines',`合計：${usageText(all)} / ≈ $${price(all).toFixed(4)}\nDIN COMMS：${usageText(usageFor('comms'))}\nHERE：${usageText(usageFor('here'))}\nBACKSTAGE：${usageText(usageFor('backstage'))}`));$('usageDetails').firstChild.style.whiteSpace='pre-wrap';}
+function validWorker(u){try{const x=new URL(u);return x.protocol==='https:'&&x.hostname==='din-comms-api.bloomshade-2020.workers.dev'&&(x.pathname==='/'||x.pathname==='/chat')&&!x.search&&!x.hash;}catch{return false;}}
+function apiURL(){return data.apiWorkerUrl.replace(/\/$/,'')+(new URL(data.apiWorkerUrl).pathname==='/chat'?'':'/chat');}
+function dailyKey(){return 'vector-calls-'+new Date().toLocaleDateString('sv-SE')};function apiCallsToday(){try{return Math.max(0,Number(localStorage.getItem(dailyKey()))||0)}catch{return 0}}
+function instructions(room){
+ if(room==='backstage')return 'あなたはVECTORのBACKSTAGEでユーザーに協力するチャッピーです。ここはRP本文の外側です。人物になりきらず、設計・相談・資料の確認を日本語で支援してください。DIN COMMS/HEREのディン本人として発言しないでください。';
+ const root=(data.apiPrompt||'').trim();const documents=data.documents.map(d=>'【'+d.name+'】\n'+d.content).join('\n\n');const memory=data.sceneMemory?'\n\n【現在地・共有メモ】\n'+data.sceneMemory:'';
+ let all=root+(documents?'\n\n'+documents:'')+memory;
+ if(!all.trim())throw Error('SETTINGS → 資料管理でプロジェクト指示を登録してください');
+ if(all.length>49000)throw Error('資料が長すぎます。APIに送る資料を49,000文字以内に整理してください');
+ return '架空のRPとして、指示と資料を優先してください。あなたはディン・ジャリンです。ユーザーが提示していない過去ログを読めるとは主張しないでください。DIN COMMSは物理的に離れた間の端末通信、HEREは同じ場にいる対面での会話です。HEREでは地の文とセリフを含めて自然に応答し、台本や説明文にしないでください。現在のモード：'+(room==='comms'?'DIN COMMS（通信）':'HERE（対面）')+'。\n\n'+all;
+}
+function sharedRPHistory(){const entries=[...data.apiMessages.map(m=>({...m,channel:'DIN COMMS'})),...data.rp.map(m=>({...m,channel:'HERE'}))];return entries.sort((a,b)=>new Date(a.at)-new Date(b.at)).slice(-16).map(m=>({role:m.sender==='me'?'user':'assistant',content:'['+m.channel+'] '+String(m.text||'').slice(0,2600)+(m.photo?' [添付写真あり]':'')}));}
+async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;lastSubmit[room]=Date.now();const r=rooms[room],text=$(r.input).value.trim(),photo=data[r.photo],state=$(room+'State');if(!text&&!photo){notice('文章か写真を入力してください');return;}if(!validWorker(data.apiWorkerUrl)){state.textContent='SETTINGSでCloudflare Worker URLを確認してください';return;}if(apiCallsToday()>=20){state.textContent='今日は20回の端末側テスト上限です（請求の強制上限ではありません）';return;}let inst;try{inst=instructions(room);}catch(err){state.textContent=err.message;return;}
+ if(!token){const value=prompt('Cloudflare WorkerのDIN_ACCESS_TOKENを入力（OpenAI APIキーではありません）');if(value===null)return;if(value.length<24){state.textContent='トークンが短すぎます';return;}token=value;}
+ busy=true;document.querySelectorAll('[data-send]').forEach(b=>b.disabled=true);state.textContent='返信を取得しています…';
+ try{
+ const history=room==='backstage'?data.backstageMessages.slice(-12).map(m=>({role:m.sender==='me'?'user':'assistant',content:String(m.text||'').slice(0,2600)})):sharedRPHistory();
+ try{localStorage.setItem(dailyKey(),String(apiCallsToday()+1));}catch{}
+ const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);let response;try{response=await fetch(apiURL(),{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({message:text||'この添付写真を見てください。',image:photo||null,instructions:inst,history,channel:room})});}finally{clearTimeout(timeout)}
+ let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(response.status===401)token='';throw Error(result.error||'HTTP '+response.status)}
+ if(typeof result.reply!=='string'||!result.reply.trim())throw Error('返答が空でした');
+ const before=cloneData();const now=new Date().toISOString(),arr=data[r.items],sender={id:'v-'+uid(),sender:'me',at:now,text:text||'［写真］',photo:photo||null};const reply={id:'v-'+uid(),sender:room==='backstage'?'chappy':'din',at:new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
+ arr.push(sender,reply);data.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;data.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;data[r.draft]='';data[r.photo]=null;
+ try{await save();}catch{Object.keys(data).forEach(k=>delete data[k]);Object.assign(data,before);state.textContent='返答は届きましたが保存に失敗しました。再送すると再課金される可能性があります。';return;}
+ $(r.input).value='';renderRoom(room);state.textContent='';
+ }catch(err){state.textContent='送信できませんでした：'+(err.name==='AbortError'?'90秒でタイムアウト':err.message)+'。下書きは残っています。';}finally{busy=false;document.querySelectorAll('[data-send]').forEach(b=>b.disabled=false)}
+}
+function renderSettings(){ $('workerUrl').value=data.apiWorkerUrl||'';$('projectInstructions').value=data.apiPrompt||'';$('sceneMemory').value=data.sceneMemory||'';$('rpUrl').value=data.rpUrl||'';$('notificationUrl').value=data.notificationUrl||'';$('hereTimeTheme').value=data.timeTheme||'auto';$('inputRate').value=data.inputRate??1;$('outputRate').value=data.outputRate??5;renderDocList();updateUsage();$('historyCounts').textContent=`DIN COMMS: ${data.apiMessages.length}件 / HERE: ${data.rp.length}件 / BACKSTAGE: ${data.backstageMessages.length}件 / 旧通信: ${data.comms.length}件`;}
+function renderDocList(){const n=$('docList');n.replaceChildren();for(const d of data.documents){const row=make('div','document-row');row.append(make('span','',`${d.name}（${d.content.length.toLocaleString()}文字）`));const del=make('button','','削除');del.type='button';del.addEventListener('click',async()=>{if(!confirm(`${d.name} を削除しますか？`))return;data.documents=data.documents.filter(x=>x.id!==d.id);try{await save();renderDocList();}catch{notice('保存に失敗しました')}});row.append(del);n.append(row);}}
+$('newDocument').addEventListener('change',async e=>{const fs=[...e.target.files||[]];e.target.value='';let loaded=0;for(const f of fs){if(!/\.(txt|md)$/i.test(f.name)||f.size>100000){notice('追加できるのは100KB以内の .md / .txt です');continue;}let content=await f.text();if(!content.trim())continue;data.documents.push({id:uid(),name:f.name.slice(0,120),content});loaded++;}if(loaded){try{await save();renderDocList();notice(`${loaded}件の資料を暗号化して保存しました`);}catch{notice('資料の保存に失敗しました')}}});
+$('saveDocuments').addEventListener('click',async()=>{const p=$('projectInstructions').value,m=$('sceneMemory').value;if(p.length>50000||m.length>12000){notice('文字数を確認してください');return;}data.apiPrompt=p;data.sceneMemory=m;try{await save();notice('資料を保存しました');}catch{notice('保存に失敗しました')}});
+$('saveWorker').addEventListener('click',async()=>{const u=$('workerUrl').value.trim();if(!validWorker(u)){notice('指定されたWorkerのURLを入力してください');return;}if(u!==data.apiWorkerUrl)token='';data.apiWorkerUrl=u;try{await save();notice('接続先を保存しました')}catch{notice('保存に失敗しました')}});
+$('clearToken').addEventListener('click',()=>{token='';notice('次のAPI送信時にトークンを再入力します')});
+$('toggleLegacy').addEventListener('click',()=>{const box=$('legacyArchive');box.hidden=!box.hidden;if(box.hidden)return;box.replaceChildren();if(!data.comms.length){box.append(make('p','footnote','旧通信アーカイブはありません'));return;}for(const m of data.comms.slice(-100)){const line=make('div','legacy-line');line.append(make('strong','',String(m.sender||'DIN').toUpperCase()+' · '+msgTime(m.at)));line.append(make('div','',String(m.text||m.body||'').slice(0,6000)));box.append(line);}if(data.comms.length>100)box.append(make('p','footnote','最新100件を表示しています。全件は暗号化バックアップに含まれます。'));});
+$('saveRates').addEventListener('click',async()=>{for(const id of ['inputRate','outputRate']){const n=Number($(id).value);if(!Number.isFinite(n)||n<0||n>500){notice('仮単価の値を確認してください');return;}data[id]=n;}try{await save();updateUsage();notice('仮単価を保存しました')}catch{notice('保存に失敗しました')}});
+$('saveTheme').addEventListener('click',async()=>{data.timeTheme=$('hereTimeTheme').value;try{await save();applyTimeTheme();notice('時間帯を保存しました')}catch{notice('保存に失敗しました')}});
+function applyTimeTheme(){const hour=new Date().getHours();const name=data.timeTheme==='auto'?(hour<6||hour>=21?'night':hour<10?'morning':hour<17?'day':'evening'):data.timeTheme;$('screen-here').dataset.time=name;}
+function validChatURL(value){if(!value)return true;try{const u=new URL(value);return u.protocol==='https:'&&['chatgpt.com','chat.openai.com'].includes(u.hostname);}catch{return false;}}
+$('saveLinks').addEventListener('click',async()=>{const rp=$('rpUrl').value.trim(),nt=$('notificationUrl').value.trim();if(!validChatURL(rp)||!validChatURL(nt)){notice('ChatGPTのHTTPSリンクだけ登録できます');return;}data.rpUrl=rp;data.notificationUrl=nt;try{await save();notice('リンクを保存しました')}catch{notice('保存に失敗しました')}});
+function openLink(kind){const link=data[kind];if(link&&validChatURL(link))window.open(link,'_blank','noopener,noreferrer');else notice('先にChatGPTのURLを登録してください');}
+$('openRp').addEventListener('click',()=>openLink('rpUrl'));$('openNotif').addEventListener('click',()=>openLink('notificationUrl'));
+$('exportBackup').addEventListener('click',async()=>{try{await window.DinVault.flush();const blob=new Blob([JSON.stringify(window.DinVault.encryptedBackup(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='vector-encrypted-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),6000);notice('暗号化バックアップを保存しました');}catch{notice('バックアップに失敗しました')}});
+$('lockNow').addEventListener('click',()=>window.DinVault.lock());
+document.querySelectorAll('[data-clear]').forEach(b=>b.addEventListener('click',async()=>{const room=b.dataset.clear;const r=rooms[room];if(!confirm(room.toUpperCase()+'の履歴を消去しますか？\n復元には事前のバックアップが必要です。'))return;const prior=data[r.items];data[r.items]=[];try{await save();renderRoom(room);renderSettings();notice('履歴を消去しました')}catch{data[r.items]=prior;notice('消去できませんでした')}}));
+document.querySelectorAll('.open-panel').forEach(r=>{r.addEventListener('click',()=>{const p=$('panel-'+r.dataset.panel);p.hidden=!p.hidden;});});
+document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.nav)));$('backHome').addEventListener('click',()=>nav('home'));$('toBackstage').addEventListener('click',()=>nav('backstage'));
+$('hereExpand').addEventListener('click',()=>{$('editorText').value=$('hereDraft').value;$('fullEditor').hidden=false;$('editorText').focus()});function closeEditor(){const value=$('editorText').value;$('hereDraft').value=value;data.rpDraftText=value;$('fullEditor').hidden=true;autosave();}$('editorClose').addEventListener('click',closeEditor);$('editorDone').addEventListener('click',closeEditor);
+renderSettings();renderRoom('comms');renderRoom('here');renderRoom('backstage');nav('home');
+if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
+};

@@ -36,12 +36,8 @@
     document.body.classList.remove('vault-locked');
     get('vaultPass').value='';get('vaultConfirm').value='';
     window.DinAppStart(data);
-    // When returning from another app after two minutes, discard in-memory keys and re-lock.
-    let hiddenAt=0;
-    document.addEventListener('visibilitychange',()=>{
-      if(document.hidden)hiddenAt=Date.now();
-      else if(hiddenAt && Date.now()-hiddenAt>120000)void lock();
-    });
+    // User-selected manual lock mode. Backgrounding does NOT auto-lock after two minutes.
+    // iOS may still terminate the PWA process, requiring unlock on a fresh launch.
   }
   async function flush(){await pending;}
   async function lock(){
@@ -75,7 +71,7 @@
     get('vaultWarning').textContent='12文字以上の強いパスフレーズを設定して控えてください。忘れると復元できません。APIキーやCloudflareのアクセストークンと同じにしないでください。';
   }
   function modeUnlock(){
-    get('vaultTitle').textContent='DIN COMMSを開く';
+    get('vaultTitle').textContent='VECTORを開く';
     get('vaultDescription').textContent='保存済みの資料と通信履歴は暗号化されています。パスフレーズで解除してください。';
     get('vaultConfirmArea').hidden=true;
     get('vaultPass').setAttribute('autocomplete','current-password');
@@ -141,7 +137,7 @@
       if(file.size>12_000_000){status('ファイルが大きすぎます。');return;}
       try{
         const obj=JSON.parse(await file.text());
-        if(!validEnvelope(obj))throw new Error('DIN COMMSの暗号化バックアップではありません。');
+        if(!validEnvelope(obj))throw new Error('VECTOR対応の暗号化バックアップではありません。');
         if(!confirm('現在の暗号化保管庫をバックアップ内容で上書きします。現在の記録は復元できなくなる可能性があります。続けますか？'))return;
         // Protect against accidental overwrites if the user has not backed up.
         localStorage.setItem(VAULT_KEY,JSON.stringify(obj));
