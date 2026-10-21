@@ -12,6 +12,16 @@ const b64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(
 const from64=s=>Uint8Array.from(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4)),ch=>ch.charCodeAt(0));
 const nowISO=()=>new Date().toISOString();
 const jst=iso=>new Date(iso).toLocaleString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false})+' JST';
+// Client timestamps are metadata, never the authority for the current time.
+function clientTimestamp(value){
+ if(typeof value!=='string')return null;
+ const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+ if(!m)return null;
+ const [,y,month,day,hour,minute,second]=m;
+ const date=new Date(0);date.setUTCFullYear(+y,+month-1,+day);
+ if(date.getUTCFullYear()!==+y||date.getUTCMonth()!==+month-1||date.getUTCDate()!==+day||+hour>23||+minute>59||+second>59)return null;
+ const time=Date.parse(value);return Number.isFinite(time)?new Date(time).toISOString():null;
+}
 function headers(origin){return {'Cache-Control':'no-store','Vary':'Origin',...(origin===ALLOWED_ORIGIN?{'Access-Control-Allow-Origin':ALLOWED_ORIGIN,'Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type','Access-Control-Max-Age':'600'}:{})}}
 function json(result,status,h){return new Response(JSON.stringify(result),{status,headers:{...h,'Content-Type':'application/json; charset=utf-8'}})}
 async function safeMatch(a,b){if(!a||!b||a.length!==b.length)return false;const [x,y]=await Promise.all([crypto.subtle.digest('SHA-256',te.encode(a)),crypto.subtle.digest('SHA-256',te.encode(b))]);const xx=new Uint8Array(x),yy=new Uint8Array(y);let d=0;for(let i=0;i<xx.length;i++)d|=xx[i]^yy[i];return d===0;}
@@ -28,8 +38,10 @@ async function chat(body,env,h){if(!body||typeof body.message!=='string'||typeof
  let photo=null;if(body.image!=null){if(typeof body.image!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(body.image)||body.image.length>225000)return json({error:'JPEG画像を圧縮して添付してください'},400,h);photo=body.image;}
  const history=Array.isArray(body.history)?body.history.slice(-24):[];
  const safeHistory=history.filter(m=>m&&['user','assistant'].includes(m.role)&&typeof m.content==='string'&&m.content.length<=3000).map(m=>({role:m.role,content:m.content}));
- const receivedAt=nowISO(),sentAt=(typeof body.sentAt==='string'&&!isNaN(Date.parse(body.sentAt)))?new Date(body.sentAt).toISOString():null;
- const clock=`【時刻情報】サーバーでの今回の受信: ${jst(receivedAt)}（${receivedAt}）。${sentAt?'端末での送信: '+jst(sentAt)+'（'+sentAt+'）。':''}以下の履歴に記した日時は保存済み時刻です。実JSTと物語内の時刻は区別し、古い過去発言の日時を現在時刻と誤認しないこと。実時刻を確認できないと断定しないこと。\n`;
+ const receivedAt=nowISO(),sentAt=clientTimestamp(body.sentAt);
+ const clock=`【実時計・今回のリクエスト】現在時刻の基準はサーバー受信時刻: ${jst(receivedAt)}（${receivedAt}、Asia/Tokyo / UTC+09:00）。これは受信時点の実時刻で、返答生成中に更新される時計ではありません。${sentAt?'端末申告の送信時刻（時計ずれの可能性あり、現在時刻の基準にしない）: '+jst(sentAt)+'（'+sentAt+'）。':'端末の送信時刻は未提供または無効です。'}
+【保存日時と物語内時刻】履歴の日時は過去の保存・送受信時刻であり、現在時刻やRP場面の時刻ではありません。実時計の経過だけで物語内の時間を進めたり、場面・行動・最新状況を補完したりしないでください。物語内の時刻は共有済みの場面記述を根拠にし、不明なら不明のまま扱ってください。
+実際の現在時刻を聞かれた場合は上記のサーバー受信時刻を根拠にJSTで答えてください。通常のRP・DIN COMMSには時刻報告やこの管理情報を付け足さず、自然な文面を保ってください。\n`;
  const role=(channel==='backstage'?'あなたは相談の支援者です。ロールプレイの人物にはなりきらないでください。':'これは独立したRP実行環境です。参照できない外部資料を読んだと偽らないでください。HEREは対面の本編、DIN COMMSはその本編に属する端末通信。通信は対面の発話に変換しない。');
  try{const result=await responseCall(env,{instructions:role+'\n'+clock+instructions,input:[...safeHistory,{role:'user',content:photo?[{type:'input_text',text:message},{type:'input_image',image_url:photo,detail:'low'}]:message}]});return json({...result,receivedAt,repliedAt:nowISO()},200,h);
  }catch(err){return json({error:err.status===429?'APIの利用制限または残高を確認してください（429）':err.status===401?'OpenAI APIキーが正しくありません（401）':err.status===403?'モデルのAPI利用権限を確認してください（403）':err.message||'OpenAIへの接続に失敗しました'},err.status===429?429:502,h);}
