@@ -179,6 +179,7 @@ async function syncNotificationState(enable=false,intent=notificationIntent){
  await durable.commit(next=>{checkNotificationIntent(intent);next.notificationLastSync=result.updatedAt;});checkNotificationIntent(intent);updateNotifyStatus();return result;
 }
 function updateNotifyStatus(){const node=$('notificationStatus');if(!node)return;if(lastSyncStatus?.pauseReason==='update-required'){node.textContent='通知Workerまたは画面の更新が必要です。通知の受信・操作は保留中です。保管庫・履歴の削除は不要です。';return;}if(['migration-stop','fallback-stop'].includes(lastSyncStatus?.rolloutMode)){node.textContent='通知は移行・保守のため強制停止中です。新規生成・ON・テスト通知は停止し、未受領本文の受信と保存確認は利用できます。';return;}if(notificationControl.uncertain()||notificationOffUnconfirmed||lastSyncStatus?.pauseReason==='control-unconfirmed'){node.textContent='通知設定の反映を確認できません。サーバーのON/OFFは未確認です。「停止して接続を確認」を実行してください。応答を失った場合は「停止結果だけ確認」で照合できます。';return;}
+ if(lastSyncStatus?.rolloutMode==='push-test-only'){const attempt=lastSyncStatus.pushTestAttempt||durable.snapshot().notificationPushTestAttempt;node.textContent='テスト通知専用：自発生成とAI判断は停止中。RP本文・資料はテスト用に同期しません。'+(attempt?'試行状態：'+({pending:'結果未確認',reserved:'結果未確認',started:'配信結果未確認',accepted:'配信事業者が受付済み（端末表示は未確認）',rejected:'配信事業者が拒否',unknown:'配信結果不明',cancelled:'送信前に中止','preparation-failed':'送信準備失敗'}[attempt.state]||'結果未確認')+'。再送はしません。':'停止・接続確認後、テストボタンから購読登録と一般文面1件の送信ができます。');return;}
  const reasons={'model-outcome-unknown':'生成結果が不明のため休止。停止して接続を確認後、明示的に再開してください','push-outcome-unknown':'Push結果が不明のため休止。本文は保持。自動再送しません','context-expired':'同期から24時間が経過したため新規生成を休止','capacity':'未受領容量の上限で新規生成を休止','sync-failed':'同期未確認。サーバーは最後に受理した内容を使用','awaiting-received-context':'受領した通知の文脈同期を待っています','legacy-review-required':'旧通知の確認が必要です'};
  node.textContent=(lastSyncStatus?.enabled??data.notificationEnabled)?'通知：有効。最後のサーバー受理：'+(data.notificationLastSync?msgDay(data.notificationLastSync)+' '+msgTime(data.notificationLastSync):'未同期')+'。'+(reasons[lastSyncStatus?.pauseReason]||'24時間未満の同期内容を参照。毎時送信ではありません。'):'通知：停止中。未受領本文と端末履歴は残ります。';
 }
@@ -209,6 +210,33 @@ async function pullNotificationInbox(){if(!token||fetchingInbox)return;fetchingI
  if(legacyAckHeld)$('notificationStatus').textContent='旧通知の受領確認は上限のため保留中です。旧本文はサーバーに保持します。新通知の受領確認は保存できたものだけ別に処理します。';
  }catch(e){$('notificationStatus').textContent='通知の受信確認ができません：'+e.message;}finally{fetchingInbox=false;}}
 const toBytes64url=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'='.repeat((4-s.length%4)%4)),c=>c.charCodeAt(0));
+async function testPushOnly(){
+ const intent=++notificationIntent;notificationDesired='off';syncWanted=false;
+ const check=()=>checkNotificationIntent(intent);
+ // Request permission in the original click gesture only after a previous server mode check.
+ const permissionRequest=lastSyncStatus?.rolloutMode==='push-test-only'&&lastSyncStatus?.pushTestOnly===true&&!notificationControl.uncertain()&&!lastSyncStatus.pushTestAttempt&&!durable.snapshot().notificationPushTestAttempt&&'Notification'in window&&Notification.permission==='default'?Notification.requestPermission():null;
+ if(!token){const value=prompt('通知テスト用のDIN_ACCESS_TOKENを入力（AI送信は行いません）');if(value===null)throw Error('入力を取り消しました');if(value.length<24)throw Error('トークンが短すぎます');token=value;if(data.rememberAccessToken)await durable.commit(next=>{check();next.savedAccessToken=value;});}
+ await notificationOffTail;check();
+ const config=await workerPost('/notifications/config',{});check();lastSyncStatus=config;updateNotifyStatus();
+ if(config.rolloutMode!=='push-test-only'||config.pushTestOnly!==true)throw Error('通知は強制停止中、またはテスト専用Workerではありません。通常ONには切り替えません');
+ if(config.pushTestAttempt||durable.snapshot().notificationPushTestAttempt)throw Error('この専用テストは試行済みです。結果不明でも再送しません');
+ if(notificationControl.uncertain())throw Error('先に「停止して接続を確認」を実行してください。本文や資料は同期しません');
+ if(!config.configured)throw Error('Cloudflare側のVAPID設定を確認してください');
+ if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))throw Error('この端末ではWeb Pushを使用できません');
+ if(!(window.navigator.standalone||window.matchMedia('(display-mode: standalone)').matches))throw Error('iPhoneのホーム画面に追加したVECTORから操作してください');
+ await durable.commit(next=>{check();next.notificationEnabled=false;});check();
+ let permission=Notification.permission;if(permissionRequest){permission=await permissionRequest;check();}else if(permission==='default')throw Error('専用モードを確認しました。通知許可のため、もう一度テストボタンを押してください（まだ送信していません）');if(permission!=='granted')throw Error('通知が許可されていません');
+ const registration=await navigator.serviceWorker.ready;check();
+ let sub=await registration.pushManager.getSubscription();check();
+ if(!sub){sub=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:toBytes64url(config.vapidPublicKey)});try{check();}catch(e){await sub.unsubscribe().catch(()=>{});throw e;}}
+ const latest=await workerPost('/notifications/config',{});check();if(latest.rolloutMode!=='push-test-only'||latest.pushTestOnly!==true)throw Error('テスト専用モードが終了しました');
+ await workerPost('/notifications/subscribe',{subscription:sub.toJSON(),baseRevision:latest.revision});check();
+ await durable.commit(next=>{check();next.notificationPushTestAttempt={state:'pending'};});check();
+ try{const result=await workerPost('/notifications/test',{});check();
+  await durable.commit(next=>{check();next.notificationPushTestAttempt={state:result.cancelled?'cancelled':result.acceptedByPushService?'accepted':'rejected'};});
+  return result;
+ }catch(e){throw Error('テスト結果を確認できません。再送はしません。'+e.message);}
+}
 async function enablePushNotifications(){
  const intent=++notificationIntent;notificationDesired='on';let sub=null,created=false;
  try{
@@ -263,7 +291,7 @@ $('saveNotificationScene').addEventListener('click',async()=>{const old=data.not
 $('recoverNotify').addEventListener('click',async()=>{if(!confirm('通知を停止し、この端末を操作元として接続し直します。他端末の古い操作は無効になります。未受領本文と履歴は残ります。'))return;try{await recoverNotifications();notice('停止を確認しました。必要なときに明示的に有効化してください');}catch(e){notice('停止結果は未確認：'+e.message);}});
 $('reconcileNotify').addEventListener('click',async()=>{try{await recoverNotifications(true);notice('停止結果を確認しました');}catch(e){notice('照合できません：'+e.message);}});
 $('enableNotify').addEventListener('click',async()=>{const b=$('enableNotify');b.disabled=true;try{await enablePushNotifications();if(notificationDesired==='on')notice('VECTORの自発通知を有効にしました。送信は保証されず、条件判定で判断します。');}catch(e){notice('有効化できません：'+e.message);}finally{b.disabled=false;}});
-$('testNotify').addEventListener('click',async()=>{try{const result=await workerPost('/notifications/test',{});notice(result.acceptedByPushService?'配信事業者が受け付けました。iPhoneに表示されるか確認してください。':'通知のテストを受け付けました');}catch(e){notice('通知テスト失敗：'+e.message);}});
+$('testNotify').addEventListener('click',async()=>{const b=$('testNotify');b.disabled=true;try{const result=await testPushOnly();notice(result.acceptedByPushService?'配信事業者が受け付けました。iPhoneに表示されるか確認してください。':result.cancelled?'停止操作により送信を中止しました。':'配信事業者に受け付けられませんでした。再送はしません。');}catch(e){notice('通知テスト：'+e.message);}finally{b.disabled=false;}});
 $('disableNotify').addEventListener('click',async()=>{if(!confirm('新しい自発通知を停止しますか？ 未受領本文と端末の履歴は残ります。'))return;try{await disablePushNotifications();if(notificationDesired==='off')notice('自発通知を停止しました');}catch(e){notice('停止に失敗：'+e.message);}});
 $('saveDocuments').addEventListener('click',async()=>{const p=$('projectInstructions').value,m=$('sceneMemory').value;if(p.length>50000||m.length>12000){notice('文字数を確認してください');return;}data.apiPrompt=p;data.sceneMemory=m;try{await save();notice('資料を保存しました');}catch{notice('保存に失敗しました')}});
 $('saveWorker').addEventListener('click',async()=>{const u=$('workerUrl').value.trim();if(!validWorker(u)){notice('指定されたWorkerのURLを入力してください');return;}if(u!==data.apiWorkerUrl){token='';data.savedAccessToken='';}data.apiWorkerUrl=u;try{await save();renderSettings();notice('接続先を保存しました')}catch{notice('保存に失敗しました')}});
