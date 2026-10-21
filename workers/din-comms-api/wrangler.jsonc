@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "din-comms-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-10",
+  "compatibility_flags": [],
+  "workers_dev": true,
+  "preview_urls": false,
+  "keep_vars": true,
+  "kv_namespaces": [
+    {
+      "binding": "VECTOR_KV",
+      "id": "eb8e5b4209b640aaa80e5f3334eb5453"
+    }
+  ],
+  "observability": {
+    "logs": { "enabled": true },
+    "traces": { "enabled": false }
+  }
+}

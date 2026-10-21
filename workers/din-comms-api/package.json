@@ -1,0 +1,13 @@
+{
+  "name": "vector-din-comms-api-draft",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "LOCAL DRAFT ONLY: pinned Wrangler and locally verified lockfile; production parity remains unverified.",
+  "scripts": {
+    "check": "node --check src/index.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.151.3"
+  }
+}
