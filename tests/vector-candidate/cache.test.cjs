@@ -1,0 +1,9 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const vm=require('node:vm');const fs=require('node:fs');const path=require('node:path');
+test('asset cache revision installs new assets, preserves unrelated storage, serves offline assets',async()=>{
+ const listeners={},deleted=[],assets=[],opened=[],stored=new Map();
+ const context={URL,console,self:{location:{origin:'https://example.invalid'},addEventListener:(n,f)=>listeners[n]=f,skipWaiting(){},clients:{claim(){}}},caches:{open:async name=>{opened.push(name);return {addAll:async paths=>{assets.push(...paths);for(const p of paths)stored.set(p,'candidate asset');},put:async()=>{}}},keys:async()=>['vector-v07-assets','unrelated-cache','din-comms-ui-old','vector-v07-clock-here-cards-20261021-assets'],delete:async name=>{deleted.push(name);return true;},match:async()=>stored.get('./app.js')},fetch:async()=>{throw Error('offline')},localStorage:new Proxy({},{get(){throw Error('must not access vault storage')}}),indexedDB:new Proxy({},{get(){throw Error('must not access vault storage')}})};
+ vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../../sw.js'),'utf8'),context);
+ let pending;listeners.install({waitUntil:p=>pending=p});await pending;assert.equal(opened[0],'vector-v07-clock-here-cards-20261021-assets');assert.ok(assets.includes('./app.js'));assert.ok(assets.includes('./vault.js'));
+ listeners.activate({waitUntil:p=>pending=p});await pending;assert.deepEqual(deleted,['vector-v07-assets','din-comms-ui-old']);
+ listeners.fetch({request:{method:'GET',url:'https://example.invalid/app.js'},respondWith:p=>pending=p});assert.equal(await pending,'candidate asset');
+});

@@ -30,3 +30,10 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .attach-btn svg{display:block;stroke-linecap:round;stroke-linejoin:round;}
 .notify-actions{display:flex;flex-direction:column;align-items:flex-start;gap:5px}
 @media(max-width:380px){.home-mini-row .home-card strong{font-size:11px;letter-spacing:0}.home-mini-row .ordinal i{width:10px}}
+
+/* Local candidate: compact HERE input and separate HOME mini-card arrows. */
+.here-composer textarea{display:block;resize:none;min-height:56px;max-height:160px;overflow-y:auto;}
+.app-shell.here-keyboard{height:var(--here-viewport-height);min-height:0;}
+.home-mini-row .home-card .card-arrow{top:auto;bottom:8px;right:12px;}
+.home-mini-row .gear-icon{line-height:1;}
+.home-mini-row .gear-icon svg{display:block;}

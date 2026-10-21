@@ -20,8 +20,8 @@ for(const room of ['comms','here','backstage','notifications'])if(!data.usageTot
 const rooms={comms:{items:'apiMessages',draft:'apiDraftText',photo:'apiDraftPhoto',input:'commsDraft',preview:'commsPhotoPreview',scroll:'commsScroll',thread:'commsThread'},here:{items:'rp',draft:'rpDraftText',photo:'rpDraftPhoto',input:'hereDraft',preview:'herePhotoPreview',scroll:'hereScroll',thread:'hereThread'},backstage:{items:'backstageMessages',draft:'backstageDraftText',photo:'backstageDraftPhoto',input:'backstageDraft',preview:'backstagePhotoPreview',scroll:'backstageScroll',thread:'backstageThread'}};
 const uid=()=>typeof crypto.randomUUID==='function'?crypto.randomUUID():('v-'+Date.now()+'-'+Math.random().toString(36).slice(2));
 const make=(tag,cls,txt)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n;};
-const msgTime=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'--:--':d.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});};
-const msgDay=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'DATE':d.toLocaleDateString('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});};
+const msgTime=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'--:--':d.toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'})+' JST';};
+const msgDay=iso=>{const d=new Date(iso);return Number.isNaN(d.valueOf())?'DATE':d.toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'});};
 function notice(t){const el=$('toast');el.textContent=t;el.hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.hidden=true,3600);}
 function cloneData(){return JSON.parse(JSON.stringify(data));}
 const save=async()=>window.DinVault.save(data);
@@ -29,7 +29,7 @@ function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catc
 function nav(where){if(!['home','comms','here','backstage','settings'].includes(where))return;
   active=where;document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='screen-'+where));
   $('screenTitle').textContent=where==='home'?'':where.toUpperCase();$('backHome').hidden=where==='home';$('toBackstage').hidden=where==='home'||where==='backstage'||where==='settings';
-  $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);if(where==='comms')pullNotificationInbox().catch(()=>{});}
+  $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);if(where==='comms')pullNotificationInbox().catch(()=>{});resizeHereComposer();}
 function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildren();let list=data[r.items];
   if(!list.length){box.append(make('p','empty-note',room==='comms'?'まだ通信履歴はありません。':room==='here'?'まだ記録はありません。':'チャッピーとの相談をここから始められます。'));}
   if(room==='comms'){
@@ -39,17 +39,31 @@ function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildre
   }else{
     for(const m of list){const w=make('article','back-turn'+(m.sender==='me'?' mine':''));w.append(make('div','back-head',(m.sender==='me'?'YOU':'CHAPPY')+'  /  '+msgTime(m.at)));w.append(make('div','back-body',m.text||''));addPhoto(w,m.photo,'here-photo');box.append(w);}
   }
-  renderPhotoPreview(room);updateUsage();requestAnimationFrame(()=>$(r.scroll).scrollTop=$(r.scroll).scrollHeight);
+  renderPhotoPreview(room);updateUsage();if(room==='here')resizeHereComposer();requestAnimationFrame(()=>$(r.scroll).scrollTop=$(r.scroll).scrollHeight);
 }
 function addPhoto(parent,photo,cls){if(typeof photo!=='string'||!photo.startsWith('data:image/jpeg;base64,'))return;const i=make('img',cls);i.src=photo;i.alt='添付された写真';i.loading='lazy';parent.append(i);}
 function renderPhotoPreview(room){const r=rooms[room],node=$(r.preview),photo=data[r.photo];node.replaceChildren();node.hidden=!photo;if(!photo)return;addPhoto(node,photo,'');const b=make('button','', '写真を外す');b.type='button';b.addEventListener('click',async()=>{data[r.photo]=null;renderPhotoPreview(room);try{await save();}catch{notice('保存に失敗しました');}});node.append(b);}
 async function readPhoto(file){if(!file.type.startsWith('image/')||file.size>18000000)throw Error('18MB以内の画像を選んでください');let bitmap;try{bitmap=await createImageBitmap(file);}catch{throw Error('この画像形式は読み込めません');}
   try{let scale=Math.min(1,960/Math.max(bitmap.width,bitmap.height));const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));const ctx=canvas.getContext('2d');ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);let photo='';for(const q of [.77,.62,.49,.36,.25]){photo=canvas.toDataURL('image/jpeg',q);if(photo.length<225000)break;}if(photo.length>225000)throw Error('圧縮後も画像が大きいため送信できません');return photo;}finally{bitmap.close?.();}}
 for(const room of Object.keys(rooms)){
-  const r=rooms[room];$(r.input).value=data[r.draft]||'';$(r.input).addEventListener('input',()=>{data[r.draft]=$(r.input).value;autosave();});
+  const r=rooms[room];$(r.input).value=data[r.draft]||'';$(r.input).addEventListener('input',()=>{data[r.draft]=$(r.input).value;if(room==='here')resizeHereComposer();autosave();});
   const fileInput=$(room+'Photo');fileInput.addEventListener('change',async()=>{const f=fileInput.files?.[0];fileInput.value='';if(!f)return;try{data[r.photo]=await readPhoto(f);renderPhotoPreview(room);await save();notice('写真を添付しました。送信前は端末内だけに保存されます。');}catch(e){notice('写真を添付できません：'+e.message);}});
   document.querySelector('[data-send="'+room+'"]').addEventListener('click',()=>sendRoom(room));
 }
+// Grow only the HERE draft; long text scrolls without consuming the reading area.
+function resizeHereComposer(){
+ const viewport=window.visualViewport, shell=$('appShell');
+ const keyboard=active==='here'&&window.innerWidth<=500&&viewport&&viewport.scale===1&&viewport.height<window.innerHeight-100;
+ shell.classList.toggle('here-keyboard',Boolean(keyboard));
+ if(keyboard)shell.style.setProperty('--here-viewport-height',viewport.height+'px');
+ else shell.style.removeProperty('--here-viewport-height');
+ const input=$('hereDraft');if(active!=='here'||!input.offsetWidth)return;
+ input.style.height='auto';
+ const cap=Math.max(56,Math.min(160,(viewport?.height||window.innerHeight)*.25));
+ input.style.height=Math.min(cap,Math.max(56,input.scrollHeight))+'px';
+}
+window.addEventListener('resize',resizeHereComposer);
+window.visualViewport?.addEventListener('resize',resizeHereComposer);
 function usageFor(room){return data.usageTotals[room]||{input:0,output:0};}
 function price(u){return (u.input*(Number(data.inputRate)||0)+u.output*(Number(data.outputRate)||0))/1000000;}
 function usageText(u){return `IN ${u.input.toLocaleString()} / OUT ${u.output.toLocaleString()} tokens`};
@@ -71,7 +85,7 @@ function sharedRPEvents(){
  const entries=[...data.apiMessages.map(m=>({...m,channel:'comms'})),...data.rp.map(m=>({...m,channel:'here'}))];
  return entries.filter(m=>!isConnectionTest(m.text)&&m.source!=='test'&&!(m.sender!=='me'&&/^(?:受信しました|通信確認|OK)[。.!！\s]*$/.test(String(m.text||'')))).sort((a,b)=>new Date(a.at)-new Date(b.at));
 }
-function sharedRPHistory(){return sharedRPEvents().slice(-24).map(m=>({role:m.sender==='me'?'user':'assistant',content:'['+(m.channel==='comms'?'DIN COMMS / 端末通信':'HERE / 対面本編')+' / '+(m.sender==='me'?'YOU':'DIN')+' / '+(m.at||'日時不明')+'] '+String(m.text||'').slice(0,2200)+(m.photo?' [添付写真あり]':'')}));}
+function sharedRPHistory(){return sharedRPEvents().slice(-24).map(m=>({role:m.sender==='me'?'user':'assistant',content:'['+(m.channel==='comms'?'DIN COMMS / 端末通信':'HERE / 対面本編')+' / '+(m.sender==='me'?'YOU':'DIN')+' / '+'保存日時: '+msgDay(m.at)+' '+msgTime(m.at)+'（'+(m.at||'日時不明')+'）'+'] '+String(m.text||'').slice(0,2200)+(m.photo?' [添付写真あり]':'')}));}
 function notificationEvents(){return sharedRPEvents().slice(-14).map(m=>({id:m.id,channel:m.channel,sender:m.sender==='me'?'me':'din',at:m.at||null,text:String(m.text||'').slice(0,850)}));}
 function notifyPayload(){return {scene:String(data.notificationScene||'').trim().slice(0,4000),events:notificationEvents()};}
 function workerRoot(){return data.apiWorkerUrl.replace(/\/chat\/?$|\/$/,'');}
@@ -141,7 +155,7 @@ $('lockNow').addEventListener('click',()=>window.DinVault.lock());
 document.querySelectorAll('[data-clear]').forEach(b=>b.addEventListener('click',async()=>{const room=b.dataset.clear;const r=rooms[room];if(!confirm(room.toUpperCase()+'の履歴を消去しますか？\n復元には事前のバックアップが必要です。'))return;const prior=data[r.items];data[r.items]=[];try{await save();renderRoom(room);renderSettings();notice('履歴を消去しました')}catch{data[r.items]=prior;notice('消去できませんでした')}}));
 document.querySelectorAll('.open-panel').forEach(r=>{r.addEventListener('click',()=>{const p=$('panel-'+r.dataset.panel);p.hidden=!p.hidden;});});
 document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.nav)));$('backHome').addEventListener('click',()=>nav('home'));$('toBackstage').addEventListener('click',()=>nav('backstage'));
-$('hereExpand').addEventListener('click',()=>{$('editorText').value=$('hereDraft').value;$('fullEditor').hidden=false;$('editorText').focus()});function closeEditor(){const value=$('editorText').value;$('hereDraft').value=value;data.rpDraftText=value;$('fullEditor').hidden=true;autosave();}$('editorClose').addEventListener('click',closeEditor);$('editorDone').addEventListener('click',closeEditor);
+$('hereExpand').addEventListener('click',()=>{$('editorText').value=$('hereDraft').value;$('fullEditor').hidden=false;$('editorText').focus()});function closeEditor(){const value=$('editorText').value;$('hereDraft').value=value;data.rpDraftText=value;$('fullEditor').hidden=true;resizeHereComposer();$('hereDraft').focus();autosave();}$('editorClose').addEventListener('click',closeEditor);$('editorDone').addEventListener('click',closeEditor);
 renderSettings();renderRoom('comms');renderRoom('here');renderRoom('backstage');nav('home');document.addEventListener('visibilitychange',()=>{if(!document.hidden)pullNotificationInbox().catch(()=>{});});navigator.serviceWorker?.addEventListener('message',e=>{if(e.data?.type==='VECTOR_INBOX')pullNotificationInbox().catch(()=>{});});if(new URLSearchParams(location.search).get('open')==='comms')nav('comms');pullNotificationInbox().catch(()=>{});
 if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('./sw.js').catch(()=>{});
 };

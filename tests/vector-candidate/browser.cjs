@@ -1,0 +1,34 @@
+// Local synthetic fixtures only. All browser requests are fulfilled or aborted.
+const {chromium}=require('playwright');const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'../..'),before=process.argv[2],out=process.argv[3]||'/tmp/vector-candidate-screenshots';fs.mkdirSync(out,{recursive:true});
+const fixture={apiPrompt:'架空のローカル動作確認。',sceneMemory:'架空の場面は夕方。',timeTheme:'day',notificationEnabled:false,rememberAccessToken:true,savedAccessToken:'mock-token-not-a-secret-1234567890',rp:[{id:'demo1',sender:'me',at:'2026-12-31T14:59:00Z',text:'これは画面確認専用の架空の文章です。\n長い文章の読みやすさを確認します。'},{id:'demo2',sender:'din',at:'2026-12-31T15:00:00Z',text:'ここには実際の会話や個人の資料を使用していません。\n入力欄の上に残る読書スペースを確認しています。'}],apiMessages:[{id:'demo3',sender:'me',at:'2026-12-31T15:00:00Z',text:'ローカル表示テスト'}]};
+(async()=>{const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const results=[];
+try{for(const [label,dir] of [['before',before],['after',root]]){if(!dir)continue;for(const [width,height] of [[320,568],[375,667],[390,844],[768,1024],[1280,900]]){
+ const context=await browser.newContext({viewport:{width,height},timezoneId:'America/Los_Angeles',serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));let failure=false,captured;
+ await page.route('**/*',async route=>{const url=new URL(route.request().url());if(url.hostname==='din-comms-api.bloomshade-2020.workers.dev'){assert.equal(url.pathname,'/chat');captured=route.request().postDataJSON();if(failure)return route.abort('failed');return route.fulfill({json:{reply:'ローカルの模擬返答',repliedAt:'2027-01-01T00:00:00Z',usage:{input_tokens:0,output_tokens:0}}});}
+ if(url.hostname!=='vector.local')return route.abort();if(url.pathname==='/vault.js')return route.fulfill({contentType:'text/javascript',body:''});const f=path.join(dir,url.pathname==='/'?'index.html':url.pathname);if(!fs.existsSync(f))return route.fulfill({status:404,body:''});return route.fulfill({path:f});});
+ await page.clock.setFixedTime(new Date('2026-12-31T15:00:00Z'));await page.goto('http://vector.local/');await page.evaluate(data=>{document.body.classList.remove('vault-locked');window.DinVault={save:async d=>{window.savedFixture=JSON.parse(JSON.stringify(d));}};window.DinAppStart(data);},fixture);
+ const overlaps=await page.locator('.home-mini-row .home-card').evaluateAll(cards=>cards.map(card=>{const a=card.querySelector('.card-arrow').getBoundingClientRect(),b=(card.querySelector('.motif svg')||card.querySelector('.motif')).getBoundingClientRect();return a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top;}));if(label==='after')assert.deepEqual(overlaps,[false,false]);
+ if(width===390||width===1280)await page.screenshot({path:path.join(out,`${label}-${width}-home.png`)});
+ await page.locator('[data-nav="here"]').click();const empty=await page.locator('#hereDraft').boundingBox();if(label==='after')assert.ok(empty.height<=58);
+ if(width===390||width===1280)await page.screenshot({path:path.join(out,`${label}-${width}-here.png`)});
+ if(label==='after'){
+ assert.match(await page.locator('#hereThread').innerText(),/2027\/01\/01/);
+ const draft='長い下書きのローカルテスト。\n'.repeat(400).slice(0,3998);await page.locator('#hereDraft').fill(draft);assert.equal(await page.locator('#hereDraft').inputValue(),draft);const long=await page.locator('#hereDraft').boundingBox();assert.ok(long.height<=161);assert.ok(long.height>empty.height);await page.locator('#hereDraft').focus();assert.equal(await page.evaluate(()=>document.activeElement.id),'hereDraft');
+ for(let i=0;i<3;i++){await page.locator('#backHome').click();await page.locator('[data-nav="settings"]').click();await page.locator('#backHome').click();await page.locator('[data-nav="here"]').click();assert.equal(await page.locator('#hereDraft').inputValue(),draft);}
+ await page.locator('#hereExpand').click();assert.equal(await page.locator('#editorText').inputValue(),draft);await page.locator('#editorText').fill(draft+'追記');await page.locator('#editorDone').click();assert.equal(await page.locator('#hereDraft').inputValue(),draft+'追記');assert.equal(await page.evaluate(()=>document.activeElement.id),'hereDraft');
+ await page.evaluate(()=>{document.dispatchEvent(new Event('visibilitychange'));});assert.equal(await page.locator('#hereDraft').inputValue(),draft+'追記');
+ if(width===390){
+ await page.evaluate(()=>{Object.defineProperty(window.visualViewport,'height',{configurable:true,get:()=>440});window.visualViewport.dispatchEvent(new Event('resize'));});
+ assert.equal(Math.round((await page.locator('#appShell').boundingBox()).height),440);
+ await page.locator('#backHome').click();assert.equal(await page.locator('#appShell').evaluate(el=>el.classList.contains('here-keyboard')),false);
+ await page.locator('[data-nav="here"]').click();assert.equal(await page.locator('#hereDraft').inputValue(),draft+'追記');
+ await page.evaluate(()=>{delete window.visualViewport.height;window.visualViewport.dispatchEvent(new Event('resize'));});
+ await page.setViewportSize({width:390,height:440});await page.locator('#hereDraft').focus();const send=await page.locator('[data-send="here"]').boundingBox();assert.ok(send.y+send.height<=440);assert.ok((await page.locator('#hereScroll').boundingBox()).height>80);await page.screenshot({path:path.join(out,'after-390-short-viewport-long-draft.png')});await page.setViewportSize({width,height});}
+ failure=true;await page.locator('[data-send="here"]').click();await page.waitForFunction(()=>document.getElementById('hereState').textContent.includes('下書きは残っています'));assert.equal(await page.locator('#hereDraft').inputValue(),draft+'追記');assert.match(captured.history[0].content,/保存日時:.*JST/);assert.match(captured.history[1].content,/2027\/01\/01.*00:00 JST/);assert.equal(captured.sentAt,'2026-12-31T15:00:00.000Z');
+ failure=false;await page.clock.setFixedTime(new Date('2026-12-31T15:00:03Z'));await page.locator('[data-send="here"]').click();await page.waitForFunction(()=>document.getElementById('hereDraft').value==='');assert.ok((await page.locator('#hereDraft').boundingBox()).height<=58);
+ await page.locator('#backHome').click();await page.locator('[data-nav="comms"]').click();assert.match(await page.locator('#commsThread').innerText(),/00:00 JST/);
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);assert.deepEqual(errors,[]);
+ }
+ results.push({label,width,height,arrowIconOverlap:overlaps,emptyHereHeight:empty.height,errors});await context.close();}}
+ fs.writeFileSync(path.join(out,'visual-results.json'),JSON.stringify(results,null,2));console.log(JSON.stringify(results,null,2));}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
