@@ -1,0 +1,11 @@
+const {build}=require('../../notification-context'),assert=require('node:assert/strict');
+const d={apiPrompt:'DIN_REGISTERED_RULE',documents:[{id:'doc',name:'設定',content:'REGISTERED_DOC'}],sceneMemory:'SCENE_ESTABLISHED',backstageMessages:[{text:'UNADOPTED_SECRET'}],backstageDraftText:'DRAFT_SECRET'};
+const options={version:'saved-17',clientId:'test-client',sequence:17,availability:'complete',coverage:{here:{through:'h1'},comms:{through:'c1'}}};
+const events=[{id:'h1',channel:'here',sender:'me',text:'駅のベンチで待つ',at:'2026-10-20T00:00:00Z'},{id:'c1',channel:'comms',sender:'din',text:'青いノートを持参',at:'2026-10-20T00:01:00Z'}];
+for(const selected of [events,[...events].reverse()]){const x=build(d,selected,options),json=JSON.stringify(x);for(const text of ['駅のベンチで待つ','青いノートを持参','h1','c1','DIN_REGISTERED_RULE','REGISTERED_DOC','SCENE_ESTABLISHED'])assert(json.includes(text));assert(!json.includes('UNADOPTED_SECRET'));assert(!json.includes('DRAFT_SECRET'));assert.deepEqual(x.events.map(e=>e.at),selected.map(e=>e.at));}
+assert.equal(build(d,events,{version:'saved-17'}).availability,'unavailable');assert.equal(build(d,events,{version:'saved-17',clientId:'test-client',sequence:17,availability:'stale'}).availability,'stale');
+assert.throws(()=>build(d,events,{...options,coverage:{here:{through:'h1'}}}));assert.throws(()=>build(d,[{...events[0],source:'test'}],options));assert.throws(()=>build(d,Array(25).fill(events[0]),options));
+const long=build(d,[{...events[0],text:'あ'.repeat(2201)}],options);assert.equal(long.events[0].text.length,2200);assert(long.events[0].truncated);
+assert.throws(()=>build({...d,apiPrompt:'あ'.repeat(49001)},events,options));
+for(const sender of [undefined,null,'assistant','chappy','DIN']){assert.throws(()=>build(d,[{...events[0],sender}],options),/発話者/);}const v=build(d,[{...events[0],validity:false}],options);assert.equal(v.events[0].validity,false);assert.equal(v.events[0].sender,'me');assert.equal(v.events[0].role,'user');
+console.log('PASS notification context builder: both orderings/modes+source IDs+registered material, no raw BACKSTAGE, unchanged stored timestamps, unavailable/stale explicit, missing coverage rejects, explicit test rejects, finite 24/2200/49000 bounds');

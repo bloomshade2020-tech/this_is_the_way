@@ -1,0 +1,10 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),{build}=require('../../notification-context');
+const html=fs.readFileSync(path.join(__dirname,'../../index.html'),'utf8');
+assert(!html.includes('全履歴・資料原文は送信しません'));
+for(const text of ['各最大12発言','各最大2200字','登録指示','登録資料の本文','共有メモ','通知用の現在地','容量上限内','Cloudflareへ暗号化して保存','復号してAIへ渡します','端末だけが復号できる形式でもありません'])assert(html.includes(text),text);
+const data={apiPrompt:'SYNTHETIC_INSTRUCTIONS',documents:[{id:'doc',name:'資料',content:'SYNTHETIC_DOCUMENT_BODY'}],sceneMemory:'SYNTHETIC_SHARED_MEMO',notificationScene:'SYNTHETIC_SCENE',backstageMessages:[{text:'UNADOPTED_DISCUSSION'}]};
+const records=[{id:'here',channel:'here',sender:'me',text:'HERE_TEXT',at:'2026-10-21T00:00:00Z',photo:'IMAGE_NOT_TRANSMITTED'},{id:'comms',channel:'comms',sender:'din',text:'COMMS_TEXT',at:'2026-10-21T00:01:00Z'}];const before=JSON.stringify({data,records});
+const payload=JSON.stringify(build(data,records,{version:'disclosure-test',clientId:'synthetic',sequence:1,availability:'complete',coverage:{here:{},comms:{}}}));
+for(const text of ['SYNTHETIC_INSTRUCTIONS','SYNTHETIC_DOCUMENT_BODY','SYNTHETIC_SHARED_MEMO','SYNTHETIC_SCENE','HERE_TEXT','COMMS_TEXT'])assert(payload.includes(text),text);
+assert(!payload.includes('IMAGE_NOT_TRANSMITTED'));assert(!payload.includes('UNADOPTED_DISCUSSION'));assert.equal(JSON.stringify({data,records}),before);
+console.log('PASS disclosure matches bounded text/reference transmission; document body included, image/raw BACKSTAGE excluded, source records unchanged');

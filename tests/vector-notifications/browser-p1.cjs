@@ -1,0 +1,20 @@
+const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),assert=require('node:assert/strict');const root=path.join(__dirname,'../..'),pass='synthetic-vault-passphrase';
+(async()=>{const b=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});try{const c=await b.newContext({viewport:{width:390,height:844},serviceWorkers:'block'}),p=await c.newPage();let inbox=[],acks=0;
+await p.addInitScript(()=>{Object.defineProperty(window,'DinAppStart',{configurable:true,set(fn){window._start=fn},get(){return data=>{window.opened=structuredClone(data);return window._start(data)}}})});
+await p.route('**/*',r=>{const u=new URL(r.request().url());if(u.hostname==='din-comms-api.bloomshade-2020.workers.dev'){
+ if(u.pathname==='/chat')return r.fulfill({json:{reply:'synthetic reply',repliedAt:'2026-10-21T00:00:00Z'}});
+ if(u.pathname==='/notifications/config')return r.fulfill({json:{protocol:4,rolloutMode:'active',revision:0}});if(u.pathname==='/notifications/inbox')return r.fulfill({json:{entries:inbox}});
+ if(u.pathname==='/notifications/ack'){acks++;inbox=[];return r.fulfill({json:{ok:true}})}
+ throw Error('Unexpected endpoint '+u.pathname);
+ }assert.equal(u.hostname,'vector.local');const f=path.join(root,u.pathname==='/'?'index.html':u.pathname);return fs.existsSync(f)?r.fulfill({path:f}):r.fulfill({status:404,body:''})});
+await p.goto('https://vector.local');await p.locator('#vaultPass').fill(pass);await p.locator('#vaultConfirm').fill(pass);await p.locator('#vaultSubmit').click();await p.locator('#appShell').waitFor({state:'visible'});
+await p.evaluate(async()=>{await DinVault.save({apiPrompt:'synthetic rules',rememberAccessToken:true,savedAccessToken:'synthetic-123456789012345678901234',apiMessages:[]});await DinVault.flush()});await p.reload();await p.locator('#vaultPass').fill(pass);await p.locator('#vaultSubmit').click();await p.locator('#appShell').waitFor({state:'visible'});await p.waitForTimeout(150);
+await p.evaluate(()=>{const real=DinVault.save;DinVault.save=async n=>{if(n.rp?.some(m=>m.text==='synthetic reply')&&!window.failedChat){window.failedChat=true;await new Promise((_,reject)=>window.rejectChat=reject)}window.lastWritten=structuredClone(n);return real(n)}});
+await p.locator('[data-nav="here"]').click();await p.locator('#hereDraft').fill('old send');await p.locator('[data-send="here"]').click();await p.waitForFunction(()=>window.rejectChat);
+inbox=[{id:'notification',text:'synthetic notice',at:'2026-10-21T00:01:00Z'}];await p.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await p.waitForTimeout(50);assert.equal(acks,0);
+await p.locator('#hereDraft').fill('new draft during save');await p.evaluate(()=>window.rejectChat(Error('synthetic quota')));await p.waitForFunction(()=>window.lastWritten?.apiMessages.some(m=>m.id==='notification'));await p.waitForTimeout(450);assert.equal(acks,1);
+await p.locator('#backHome').click();await p.locator('[data-nav="settings"]').click();await p.locator('[data-panel="docs"]').click();await p.locator('#projectInstructions').fill('new settings');await p.locator('#saveDocuments').click();await p.waitForTimeout(150);
+assert.equal(await p.evaluate(()=>window.lastWritten.apiMessages.filter(m=>m.id==='notification').length),1);assert.equal(await p.evaluate(()=>window.lastWritten.rp.length),0);
+await p.reload();await p.locator('#vaultPass').fill(pass);await p.locator('#vaultSubmit').click();await p.locator('#appShell').waitFor({state:'visible'});const opened=await p.evaluate(()=>window.opened);assert.equal(opened.apiMessages.filter(m=>m.id==='notification').length,1);assert.equal(opened.rpDraftText,'new draft during save');assert.equal(opened.apiPrompt,'new settings');
+console.log('PASS actual browser/vault P1: blocked chat save fails; queued notice saved+ack; later draft/settings persisted; restart retains notice and new draft; no whole-state rollback');
+await c.close()}finally{await b.close()}})().catch(e=>{console.error(e);process.exitCode=1});
