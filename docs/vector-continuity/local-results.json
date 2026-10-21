@@ -1,0 +1,96 @@
+{
+  "tests": 11,
+  "results": [
+    {
+      "name": "legitimate_OK_and_test_exchange_preserved_with_provenance",
+      "status": "PASS",
+      "evidence": {
+        "shared": 4,
+        "ambiguousTestRetained": true,
+        "legitimateOK": true
+      }
+    },
+    {
+      "name": "explicit_test_metadata_excludes_only_verified_pairs_and_preserves_originals",
+      "status": "PASS",
+      "evidence": {
+        "explicitTestPairExcluded": true,
+        "legacyPartnerNotInferred": true,
+        "originalsUnchanged": true
+      }
+    },
+    {
+      "name": "backstage_own_2600_with_metadata_survives_worker",
+      "status": "PASS",
+      "evidence": {
+        "ownText": 2600,
+        "recordCharacters": 2849
+      }
+    },
+    {
+      "name": "both_directions_shared_not_backstage",
+      "status": "PASS",
+      "evidence": "both modes pass"
+    },
+    {
+      "name": "explicit_pairs_24_boundary_and_mixed_interleaving",
+      "status": "PASS",
+      "evidence": {
+        "cap": 24,
+        "selected": 23,
+        "completePairs": 11,
+        "singletons": 1,
+        "interleavedPairPreserved": true,
+        "reversedClientClockPairPreserved": true
+      }
+    },
+    {
+      "name": "legacy_not_inferred_and_duplicate_exchange_ids_not_merged",
+      "status": "PASS",
+      "evidence": "legacy remains ambiguous; boundary pairing not claimed"
+    },
+    {
+      "name": "backstage_12_shared_plus_12_own_documents_memo_and_no_adoption",
+      "status": "PASS",
+      "evidence": {
+        "shared": 12,
+        "own": 12,
+        "ownTextCap": 2600,
+        "instructionsCharacters": 480,
+        "noAdoption": true
+      }
+    },
+    {
+      "name": "all_frontend_history_survives_worker_3000_cap_even_long_metadata",
+      "status": "PASS",
+      "evidence": {
+        "maxHistoryCharacters": 2488,
+        "upstreamHistory": 24
+      }
+    },
+    {
+      "name": "notification_payload_exact_baseline_equivalence",
+      "status": "PASS",
+      "evidence": {
+        "sameBytes": true,
+        "knownNotificationFilteringIssueStillPresent": true
+      }
+    },
+    {
+      "name": "new_send_pair_metadata_and_saved_timestamp",
+      "status": "PASS",
+      "evidence": "new pair only; real and fictional clock policy retained"
+    },
+    {
+      "name": "backstage_budget_and_oversized_reference_rejection",
+      "status": "PASS",
+      "evidence": {
+        "syntheticBeforeCharacters": 31319,
+        "syntheticAfterCharacters": 109369,
+        "afterInstructions": 48441,
+        "maxHistoryContent": 2736,
+        "note": "not tokens or billing estimate; excludes current message and Worker prefix"
+      }
+    }
+  ]
+}

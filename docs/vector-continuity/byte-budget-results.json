@@ -1,0 +1,100 @@
+{
+  "method": "actual Worker.fetch with Origin/auth/Content-Length/requestJSON and mocked upstream; no network",
+  "frontendLimitBytes": 439000,
+  "workerLimitBytes": 440000,
+  "results": [
+    {
+      "name": "baseline",
+      "status": 200,
+      "bytes": 304993,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "candidateV0",
+      "status": 400,
+      "bytes": 534087,
+      "upstreamCalls": 0
+    },
+    {
+      "name": "candidateRejectPreservesDraftPhotoHistoryBeforeTokenOrCounter",
+      "sent": 0,
+      "originalUnchanged": true
+    },
+    {
+      "name": "JapaneseNoImage",
+      "status": 200,
+      "bytes": 309095,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "noImageEscapingJapaneseEmojiBoundary",
+      "preflight": "accept",
+      "status": 200,
+      "bytes": 438999,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "noImageEscapingJapaneseEmojiBoundary",
+      "preflight": "accept",
+      "status": 200,
+      "bytes": 439000,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "noImageEscapingJapaneseEmojiBoundary",
+      "preflight": "reject",
+      "status": 200,
+      "bytes": 439001,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "noImageEscapingJapaneseEmojiBoundary",
+      "preflight": "reject",
+      "status": 200,
+      "bytes": 440000,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "noImageEscapingJapaneseEmojiBoundary",
+      "preflight": "reject",
+      "status": 400,
+      "bytes": 440001,
+      "upstreamCalls": 0
+    },
+    {
+      "name": "imageBoundary",
+      "preflight": "accept",
+      "status": 200,
+      "bytes": 438999,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "imageBoundary",
+      "preflight": "accept",
+      "status": 200,
+      "bytes": 439000,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "imageBoundary",
+      "preflight": "reject",
+      "status": 200,
+      "bytes": 439001,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "imageBoundary",
+      "preflight": "reject",
+      "status": 200,
+      "bytes": 440000,
+      "upstreamCalls": 1
+    },
+    {
+      "name": "imageBoundary",
+      "preflight": "reject",
+      "status": 400,
+      "bytes": 440001,
+      "upstreamCalls": 0
+    }
+  ]
+}
