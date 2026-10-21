@@ -1,3 +1,4 @@
+// LOCAL REVIEW ONLY. Not applied. Compare all existing live settings before any authorized deploy.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "din-comms-api",
@@ -14,7 +15,36 @@
     }
   ],
   "observability": {
-    "logs": { "enabled": true },
-    "traces": { "enabled": false }
+    "logs": {
+      "enabled": true
+    },
+    "traces": {
+      "enabled": false
+    }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "VECTOR_NOTIFICATIONS",
+        "class_name": "VectorNotificationCoordinator"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "vector-notifications-sqlite-v1",
+      "new_sqlite_classes": [
+        "VectorNotificationCoordinator"
+      ]
+    }
+  ],
+  "vars": {
+    "VECTOR_NOTIFICATION_MODE": "push-test-only",
+    "UNREAD_BYTE_CAP": 1048576
+  },
+  "triggers": {
+    "crons": [
+      "0 * * * *"
+    ]
   }
 }
