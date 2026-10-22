@@ -42,13 +42,29 @@ function nav(where){if(!['home','comms','here','backstage','settings'].includes(
 function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildren();let list=data[r.items];
   if(!list.length){box.append(make('p','empty-note',room==='comms'?'まだ通信履歴はありません。':room==='here'?'まだ記録はありません。':'チャッピーとの相談をここから始められます。'));}
   if(room==='comms'){
-    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('div','chat-turn'+(m.sender==='me'?' mine':''));w.append(make('div','chat-meta',(m.sender==='me'?'YOU':'DIN')+'  /  '+msgTime(m.at)));w.append(make('div','chat-bubble',m.text||''));addPhoto(w,m.photo,'chat-photo');box.append(w);}
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('div','chat-turn'+(m.sender==='me'?' mine':''));w.append(make('div','chat-meta',(m.sender==='me'?'YOU':'DIN')+'  /  '+msgTime(m.at)));w.append(make('div','chat-bubble',m.text||''));addPhoto(w,m.photo,'chat-photo');addBodyCopy(w,m);box.append(w);}
   }else if(room==='here'){
-    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('article','here-turn'+(m.sender==='me'?' you':' din'));const head=make('div','here-head');head.append(make('span','speaker-dot'));head.append(make('strong','',m.sender==='me'?'YOU':'DIN'));const more=make('button','more-btn','···');more.type='button';more.title='日時と記録IDを確認';more.addEventListener('click',()=>{const info=(m.sender==='me'?'YOU':'DIN')+'\n'+(m.at||'日時不明')+'\n'+(m.id||'IDなし');if(confirm(info+'\n\n記録情報をコピーしますか？'))navigator.clipboard?.writeText(info).then(()=>notice('記録情報をコピーしました')).catch(()=>notice(info));});head.append(more);w.append(head);w.append(make('div','here-body',m.text||''));addPhoto(w,m.photo,'here-photo');box.append(w);}
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('article','here-turn'+(m.sender==='me'?' you':' din'));const head=make('div','here-head');head.append(make('span','speaker-dot'));head.append(make('strong','',m.sender==='me'?'YOU':'DIN'));const more=make('button','more-btn','···');more.type='button';more.title='日時と記録IDを確認';more.addEventListener('click',()=>{const info=(m.sender==='me'?'YOU':'DIN')+'\n'+(m.at||'日時不明')+'\n'+(m.id||'IDなし');if(confirm(info+'\n\n記録情報をコピーしますか？'))navigator.clipboard?.writeText(info).then(()=>notice('記録情報をコピーしました')).catch(()=>notice(info));});head.append(more);w.append(head);w.append(make('div','here-body',m.text||''));addPhoto(w,m.photo,'here-photo');addBodyCopy(w,m);box.append(w);}
   }else{
-    for(const m of list){const w=make('article','back-turn'+(m.sender==='me'?' mine':''));w.append(make('div','back-head',(m.sender==='me'?'YOU':'CHAPPY')+'  /  '+msgTime(m.at)));w.append(make('div','back-body',m.text||''));addPhoto(w,m.photo,'here-photo');box.append(w);}
+    for(const m of list){const w=make('article','back-turn'+(m.sender==='me'?' mine':''));w.append(make('div','back-head',(m.sender==='me'?'YOU':'CHAPPY')+'  /  '+msgTime(m.at)));w.append(make('div','back-body',m.text||''));addPhoto(w,m.photo,'here-photo');addBodyCopy(w,m);box.append(w);}
   }
   renderPhotoPreview(room);updateUsage();if(room==='here')resizeHereComposer();requestAnimationFrame(()=>$(r.scroll).scrollTop=$(r.scroll).scrollHeight);
+}
+function addBodyCopy(parent,message){
+ const text=typeof message.text==='string'?message.text:'';
+ if(!text)return;
+ const row=make('div','message-actions'),button=make('button','body-copy','コピー');
+ button.type='button';button.setAttribute('aria-label','このメッセージの本文をコピー');button.title='本文だけコピー';
+ button.addEventListener('click',async()=>{
+  button.disabled=true;
+  try{
+   if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+   await navigator.clipboard.writeText(text);
+   notice('本文をコピーしました');
+  }catch{notice('コピーできませんでした。本文を長押し、または選択してコピーしてください。');}
+  finally{button.disabled=false;}
+ });
+ row.append(button);parent.append(row);
 }
 function addPhoto(parent,photo,cls){if(typeof photo!=='string'||!photo.startsWith('data:image/jpeg;base64,'))return;const i=make('img',cls);i.src=photo;i.alt='添付された写真';i.loading='lazy';parent.append(i);}
 function renderPhotoPreview(room){const r=rooms[room],node=$(r.preview),photo=data[r.photo];node.replaceChildren();node.hidden=!photo;if(!photo)return;addPhoto(node,photo,'');const b=make('button','', '写真を外す');b.type='button';b.addEventListener('click',async()=>{draftRevision[room]++;data[r.photo]=null;renderPhotoPreview(room);try{await save();}catch{notice('保存に失敗しました');}});node.append(b);}
