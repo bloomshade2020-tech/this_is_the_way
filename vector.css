@@ -69,3 +69,12 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .body-copy:focus-visible{outline:2px solid currentColor;outline-offset:2px;opacity:1;}
 .body-copy:disabled{cursor:wait;opacity:.5;}
 .chat-bubble,.here-body,.back-body{user-select:text;-webkit-user-select:text;}
+
+/* Selected HERE palette C: visual color only; time selection semantics unchanged. */
+.here-page,.here-page[data-time]{--here-border:#929d96;}
+.here-page{--here-base:#eae8e1;}
+.here-page[data-time="morning"]{--here-base:#e1e6ed;}
+.here-page[data-time="day"]{--here-base:#eae8e1;}
+.here-page[data-time="evening"]{--here-base:#e4c9c7;}
+.here-page[data-time="night"]{--here-base:#bec8d8;}
+.here-page .day-divider,.here-page .more-btn{color:#465149;}

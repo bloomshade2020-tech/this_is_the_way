@@ -53,7 +53,13 @@ function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildre
 function addBodyCopy(parent,message){
  const text=typeof message.text==='string'?message.text:'';
  if(!text)return;
- const row=make('div','message-actions'),button=make('button','body-copy','コピー');
+ const row=make('div','message-actions'),button=make('button','body-copy');
+ const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('width','20');icon.setAttribute('height','20');icon.setAttribute('aria-hidden','true');icon.setAttribute('focusable','false');
+ const back=document.createElementNS(icon.namespaceURI,'path');back.setAttribute('d','M8 5V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-1');
+ const front=document.createElementNS(icon.namespaceURI,'rect');front.setAttribute('x','3');front.setAttribute('y','8');front.setAttribute('width','13');front.setAttribute('height','13');front.setAttribute('rx','1');
+ for(const shape of [back,front]){shape.setAttribute('fill','none');shape.setAttribute('stroke','currentColor');shape.setAttribute('stroke-width','1.6');shape.setAttribute('stroke-linejoin','round');icon.append(shape);}
+ button.append(icon);
  button.type='button';button.setAttribute('aria-label','このメッセージの本文をコピー');button.title='本文だけコピー';
  button.addEventListener('click',async()=>{
   button.disabled=true;
