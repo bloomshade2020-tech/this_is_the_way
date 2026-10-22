@@ -185,8 +185,8 @@ async function recoverNotifications(confirmOnly=false){
   notificationOffTail=Promise.resolve();notificationOffUnconfirmed=false;lastSyncStatus=result;updateNotifyStatus();
  }catch(e){if(intent===notificationIntent){lastSyncStatus={pauseReason:'control-unconfirmed'};updateNotifyStatus();}throw e;}
 }
-function notificationSnapshot(saved,requiredNotificationId){
- const events=sharedRPEvents(saved),h=events.filter(e=>e.channel==='here'),c=events.filter(e=>e.channel==='comms');
+async function notificationSnapshot(saved,requiredNotificationId){
+ const events=await window.VectorNotificationContext.normalizeLegacyIds(sharedRPEvents(saved)),h=events.filter(e=>e.channel==='here'),c=events.filter(e=>e.channel==='comms');
  const selected=[...recentContext(h,12),...recentContext(c,12)].sort((a,b)=>new Date(a.at)-new Date(b.at));
  const coverage=list=>({knownEmpty:list.length===0,total:list.length,through:list.at(-1)?.id||null});
  return window.VectorNotificationContext.build(saved,selected,{clientId:saved.notificationClientId,sequence:saved.notificationContextSequence,version:saved.notificationClientId+':'+saved.notificationContextSequence,availability:'complete',requiredNotificationId,coverage:{here:coverage(h),comms:coverage(c)}});
@@ -196,7 +196,8 @@ async function syncNotificationState(enable=false,intent=notificationIntent){
  checkNotificationIntent(intent);
  const saved=durable.snapshot();if(!enable&&!saved.notificationEnabled)return;
  const config=await workerPost('/notifications/config',{});checkNotificationIntent(intent);if(config.protocol!==4)throw Error('共有文脈対応の通知Workerが必要です');
- let result;try{result=await workerPost(enable?'/notifications/enable':'/notifications/update',{context:notificationSnapshot(saved,config.lastGeneratedId),baseRevision:config.revision});}catch(e){if(enable)e.controlUnconfirmed=true;throw e;}
+ const context=await notificationSnapshot(saved,config.lastGeneratedId);checkNotificationIntent(intent);
+ let result;try{result=await workerPost(enable?'/notifications/enable':'/notifications/update',{context,baseRevision:config.revision});}catch(e){if(enable)e.controlUnconfirmed=true;throw e;}
  checkNotificationIntent(intent);lastSyncStatus=result;
  await durable.commit(next=>{checkNotificationIntent(intent);next.notificationLastSync=result.updatedAt;});checkNotificationIntent(intent);updateNotifyStatus();return result;
 }

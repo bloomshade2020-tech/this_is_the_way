@@ -1,0 +1,30 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),{webcrypto}=require('crypto');
+const app=fs.readFileSync(require('path').join(__dirname,'../../app.js'),'utf8');
+const context=require('../../notification-context.js');
+const shared=app.slice(app.indexOf('function sharedRPEvents('),app.indexOf('function contextRecord('));
+const snapshot=app.slice(app.indexOf('async function notificationSnapshot('),app.indexOf('function queueNotificationSync('));
+const sync=app.slice(app.indexOf('async function syncNotificationState('),app.indexOf('function updateNotifyStatus('));
+const base={sender:'me',at:'2026-10-22T00:00:00Z',text:' synthetic\n🙂 '};
+const state=(rp=[],comms=[])=>({rp,apiMessages:comms,documents:[],apiPrompt:'synthetic',sceneMemory:'',notificationScene:'synthetic scene',notificationClientId:'client',notificationContextSequence:1,notificationEnabled:true});
+const c={window:{VectorNotificationContext:context},Date,Map,Set,JSON};vm.createContext(c);vm.runInContext(shared+'\n'+snapshot,c);
+(async()=>{
+const original=state([{...base,id:10},{...base}],[{...base,id:'notice-real',sender:'din',source:'scheduled'}]),before=JSON.stringify(original);
+const a=await c.notificationSnapshot(original),b=await c.notificationSnapshot(JSON.parse(before));assert.equal(JSON.stringify(original),before);assert.deepEqual(a.events.map(e=>e.id),b.events.map(e=>e.id));assert.equal(a.events[2].id,'notice-real');assert.equal(a.receivedNotifications.ids[0],'notice-real');assert.equal(a.events[0].contextIdProvenance.originalId,10);assert.equal(JSON.stringify(a.events.map(e=>e.text)),JSON.stringify(original.rp.concat(original.apiMessages).map(e=>e.text)));
+console.log('PASS numeric/missing normalized, repeat/reload stable, original order/text/IDs and receipt IDs unchanged');
+const added=await c.notificationSnapshot({...original,rp:[...original.rp,{...base,id:77,text:'other'}]});assert.deepEqual(added.events.slice(0,2).map(e=>e.id),a.events.slice(0,2).map(e=>e.id));
+const duplicates=await c.notificationSnapshot(state([{...base},{...base}]));assert.notEqual(duplicates.events[0].id,duplicates.events[1].id);
+const cross=await c.notificationSnapshot(state([{...base}],[{...base}]));assert.notEqual(cross.events[0].id,cross.events[1].id);
+console.log('PASS unrelated append stable; identical legacy occurrences and channel identities separated');
+for(const records of [[],[{...base,id:'valid-test',source:'test'}]]){assert.equal((await c.notificationSnapshot(state(records))).events.length,0);}
+assert.equal((await c.notificationSnapshot(state([{...base,id:'string',text:'test conversation'}]))).events[0].id,'string');
+await assert.rejects(c.notificationSnapshot(state([{...base,id:false}])),/記録ID形式/);
+await assert.rejects(c.notificationSnapshot(state([],[{...base,source:'scheduled'}])),/受領した通知/);
+await assert.rejects(c.notificationSnapshot(state([{...base,sender:'unknown'}])),/発話者/);
+const collided=state([{...base},{...base,id:duplicates.events[0].id}]);await assert.rejects(c.notificationSnapshot(collided),/衝突/);
+console.log('PASS empty/test behavior retained; malformed ID/sender/receipt and collisions fail closed');
+const many=state(Array.from({length:20},(_,i)=>({...base,id:i,text:'synthetic '+i})));const chosen=await c.notificationSnapshot(many);assert.equal(chosen.events.length,12);assert.equal(chosen.coverage.here.through,chosen.events.at(-1).id);
+console.log('PASS bounded selection and coverage use same derived IDs');
+let intent=1,sent=0,release;const delayed={...context,normalizeLegacyIds:async e=>{await new Promise(r=>release=r);return context.normalizeLegacyIds(e);}};
+const x={...c,window:{VectorNotificationContext:delayed},notificationIntent:1,durable:{snapshot:()=>original,commit:async f=>f({})},checkNotificationIntent:i=>{if(i!==intent)throw Error('cancelled');},workerPost:async path=>{if(path==='/notifications/config')return {protocol:4,revision:0};sent++;return {};},updateNotifyStatus:()=>{}};vm.createContext(x);vm.runInContext(shared+'\n'+snapshot+'\n'+sync,x);const pending=x.syncNotificationState(true,1);while(!release)await Promise.resolve();intent=2;release();await assert.rejects(pending,/cancelled/);assert.equal(sent,0);
+console.log('PASS OFF/lock intent superseding async normalization prevents enable/update dispatch');
+})().catch(e=>{console.error(e);process.exitCode=1});
