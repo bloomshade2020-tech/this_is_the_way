@@ -27,7 +27,7 @@ function apply(state,ops,guard=false){
 function create(view,write,hooks={}){
  let committed=clone(view),tail=Promise.resolve(),closed=false;
  function enqueue(edit){if(closed)return Promise.reject(Error('Vault closing'));const run=tail.catch(()=>{}).then(async()=>{
-  const before=clone(committed),candidate=clone(committed);const result=edit(candidate);hooks.prepare?.(candidate,before);await write(clone(candidate));committed=candidate;
+  const before=clone(committed),candidate=clone(committed);const result=edit(candidate);await hooks.prepare?.(candidate,before);await write(clone(candidate));committed=candidate;
   // Only committed deltas are published. Later typing/settings remain in the view.
   apply(view,diff(before,candidate),true);hooks.committed?.(clone(candidate),before);return result;
  });tail=run;return run;}

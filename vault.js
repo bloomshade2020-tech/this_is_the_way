@@ -1,3 +1,4 @@
+window.VectorVaultBuild='vector-shared-setup-v2-20261024';
 /* VECTOR v0.6.1 local encrypted vault.
    PBKDF2-SHA256 (310,000 iterations) -> AES-GCM 256-bit.
    Passphrase is NEVER persisted. Optional remembered sessions store a non-extractable AES CryptoKey in IndexedDB on the trusted device; this is a convenience/security tradeoff.
@@ -11,7 +12,7 @@
   const PBKDF2_ITERS=310000;
   const enc=new TextEncoder(),dec=new TextDecoder();
   const get=id=>document.getElementById(id);
-  let key=null, envelope=null, pending=Promise.resolve(),closing=false,started=false;
+  let key=null, envelope=null, stateEnvelope=null, pending=Promise.resolve(),closing=false,started=false;
   const toB64=b=>{const bytes=new Uint8Array(b);let str='';for(let i=0;i<bytes.length;i+=16384){str+=String.fromCharCode(...bytes.subarray(i,i+16384));}return btoa(str);};
   const fromB64=str=>Uint8Array.from(atob(str),ch=>ch.charCodeAt(0));
   const random=length=>crypto.getRandomValues(new Uint8Array(length));
@@ -31,7 +32,13 @@
     if(!data || typeof data!=='object' || Array.isArray(data))throw new Error('データ形式が正しくありません');
     return data;
   };
-  const commit=v=>{localStorage.setItem(VAULT_KEY,JSON.stringify(v));envelope=v;};
+  const commit=v=>{if(!validEnvelope(v))throw Error('VAULT_CAPACITY_EXCEEDED');const raw=JSON.stringify(v);if(enc.encode(raw).length>12_000_000)throw Error('VAULT_CAPACITY_EXCEEDED');localStorage.setItem(VAULT_KEY,raw);envelope=v;stateEnvelope=raw;};
+  // All candidate tabs serialize every vault mutation, including recovery.
+  const WRITE_LOCK='vector-encrypted-vault-write-v1';
+  const checkBase=expected=>{if(localStorage.getItem(VAULT_KEY)!==expected)throw Error('STALE_VAULT_REOPEN_REQUIRED');};
+  const withWriteLock=fn=>navigator.locks?.request
+    ? navigator.locks.request(WRITE_LOCK,{mode:'exclusive'},fn)
+    : fn(); // Ordinary app remains usable; shared-log installation requires locks.
   const status=s=>{get('vaultStatus').textContent=s;};
   // Same-origin IndexedDB can persist a non-extractable CryptoKey via structured clone.
   // This prevents casual key export, NOT decrypt-capable access by malicious same-origin JS
@@ -74,10 +81,13 @@
       try{await rememberUnlock(true);}catch(err){
         // App can still open normally. Do not silently claim restart-unlock is enabled.
         data.stayUnlocked=false;
-        try{await vault.save(data);}catch{}
+        // Startup fallback is memory-only. Do not save a stale decrypted snapshot
+        // before the app installs its guarded persistence queue.
+        // A later ordinary guarded save may persist the effective false setting.
         alert('この端末でログイン状態を維持できませんでした。次回はパスフレーズの入力が必要です。');
       }
     }
+    await window.VectorSharedSetup?.beforeStart(data);
     started=true;
     document.body.classList.remove('vault-locked');
     get('vaultPass').value='';get('vaultConfirm').value='';
@@ -99,14 +109,18 @@
     save(data){
       if(!key || !envelope || closing)return Promise.reject(new Error('Vault locked'));
       const json=JSON.stringify(data);
-      pending=pending.catch(()=>{}).then(async()=>{
+      pending=pending.catch(()=>{}).then(()=>withWriteLock(async()=>{
+        const expected=stateEnvelope;checkBase(expected);
         const updated=await seal(JSON.parse(json),key,fromB64(envelope.salt),envelope.iterations);
+        checkBase(expected);
         // No legacy plaintext written at any point.
         commit(updated);
-      });
+      }));
       return pending;
     },
     async flush(){await flush();},
+    writeBaseToken(){return stateEnvelope;},
+    sharedLogWriteGuardReady(){return Boolean(navigator.locks?.request);},
     encryptedBackup(){if(!envelope || !key)throw new Error('保管庫を先に開いてください');return JSON.parse(JSON.stringify(envelope));},
     lock,
     rememberUnlock,
@@ -130,6 +144,8 @@
     get('vaultSubmit').textContent='ロックを解除';
   }
   async function create(pass,migrate){
+    const expected=localStorage.getItem(VAULT_KEY);
+    if(expected!==null)throw Error('STALE_VAULT_REOPEN_REQUIRED');
     let legacy={};
     if(migrate){
       try{legacy=JSON.parse(localStorage.getItem(LEGACY_KEY)||'{}');}catch{throw new Error('旧データを読み取れません。消さずに残しました。');}
@@ -140,18 +156,22 @@
     const fresh=await seal(legacy,k,salt,iters);
     // Verify before replacing state / removing legacy plaintext.
     await open(fresh,k);
-    commit(fresh);
-    const verified=await open(JSON.parse(localStorage.getItem(VAULT_KEY)),k);
-    if(migrate)localStorage.removeItem(LEGACY_KEY);
+    const verified=await withWriteLock(async()=>{
+      checkBase(expected);commit(fresh);
+      const savedRaw=localStorage.getItem(VAULT_KEY);
+      const saved=await open(JSON.parse(savedRaw),k);checkBase(savedRaw);
+      if(migrate)localStorage.removeItem(LEGACY_KEY);
+      return saved;
+    });
     key=k;
     await startApp(verified);
   }
   async function unlock(pass){
-    let e;
-    try{e=JSON.parse(localStorage.getItem(VAULT_KEY)||'{}');}catch{throw new Error('保存データが壊れています。');}
+    let e;const raw=localStorage.getItem(VAULT_KEY);
+    try{e=JSON.parse(raw||'{}');}catch{throw new Error('保存データが壊れています。');}
     if(!validEnvelope(e))throw new Error('暗号化データの形式が正しくありません。');
     const k=await derive(pass,fromB64(e.salt),e.iterations);
-    const data=await open(e,k);key=k;envelope=e;
+    const data=await open(e,k);key=k;envelope=e;stateEnvelope=raw;
     // If a legacy key still exists after restoring a vault, discard it after successful decryption.
     if(localStorage.getItem(LEGACY_KEY)!==null)localStorage.removeItem(LEGACY_KEY);
     await startApp(data);
@@ -167,7 +187,7 @@
       if(!validEnvelope(e)||entry.salt!==e.salt)throw Error('古い解除情報です');
       const data=await open(e,entry.key);
       if(data.stayUnlocked!==true)throw Error('端末のロック解除維持が無効です');
-      key=entry.key;envelope=e;
+      key=entry.key;envelope=e;stateEnvelope=raw;
       await startApp(data);
     }catch{
       key=null;envelope=null;
@@ -192,17 +212,19 @@
     // Recovery without a passphrase is cryptographically impossible. Offer a scoped wipe,
     // not a Safari-wide data clearing instruction (same-origin Pages may share storage).
     get('vaultResetBtn').addEventListener('click',async()=>{
-      if(localStorage.getItem(VAULT_KEY)===null){status('初期化する暗号化保管庫がありません。');return;}
+      const expected=localStorage.getItem(VAULT_KEY);
+      if(expected===null){status('初期化する暗号化保管庫がありません。');return;}
       if(!confirm('注意：DIN COMMS内の暗号化済みの通信履歴・API試験履歴・設定を完全に失います。パスフレーズなしでは復旧できません。続けますか？'))return;
       const typed=prompt('最終確認：端末内の保管庫を初期化する場合だけ、半角英字で RESET と入力してください。');
       if(typed!=='RESET'){status('初期化をキャンセルしました。');return;}
       // Wipe ONLY DIN COMMS encrypted vault. Do not clear origin-wide web storage,
       // Worker secrets, browser credentials or other hosted app storage.
-      try{await removeSession();localStorage.removeItem(VAULT_KEY);location.reload();}
+      try{await withWriteLock(async()=>{checkBase(expected);await removeSession();checkBase(expected);localStorage.removeItem(VAULT_KEY);});location.reload();}
       catch(err){status('初期化できませんでした。端末の空き容量やSafari設定を確認してください。');}
     });
     get('vaultRestoreBtn').addEventListener('click',()=>get('vaultImportFile').click());
     get('vaultImportFile').addEventListener('change',async e=>{
+      const expected=localStorage.getItem(VAULT_KEY);
       const file=e.target.files?.[0];if(!file)return;
       if(file.size>12_000_000){status('ファイルが大きすぎます。');return;}
       try{
@@ -210,7 +232,13 @@
         if(!validEnvelope(obj))throw new Error('VECTOR対応の暗号化バックアップではありません。');
         if(!confirm('現在の暗号化保管庫をバックアップ内容で上書きします。現在の記録は復元できなくなる可能性があります。続けますか？'))return;
         // Protect against accidental overwrites if the user has not backed up.
-        await removeSession();localStorage.setItem(VAULT_KEY,JSON.stringify(obj));
+        await withWriteLock(async()=>{checkBase(expected);
+          // Fresh identity prevents ABA: an old E0 tab cannot overwrite E0 restored later.
+          const restored=JSON.stringify({...obj,restoredRevision:toB64(random(16))});
+          if(enc.encode(restored).length>12_000_000)throw Error('VAULT_CAPACITY_EXCEEDED');
+          await removeSession();checkBase(expected);
+          localStorage.setItem(VAULT_KEY,restored);
+        });
         // Note: importing a backup does not restore old Gmail API access.
         location.reload();
       }catch(err){status('復元できません：'+(err?.message||'ファイル形式を確認してください。'));}

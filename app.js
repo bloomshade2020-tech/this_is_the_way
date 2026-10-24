@@ -1,10 +1,11 @@
+window.VectorAppBuild='vector-shared-setup-v2-20261024';
 /* VECTOR v0.7 — synchronized private RP prototype. Never put secrets in this file. */
 window.DinAppStart = function DinAppStart(unlocked){
 'use strict';
 const $=id=>document.getElementById(id);
-const initial={comms:[],rp:[],apiMessages:[],backstageMessages:[],apiWorkerUrl:'https://din-comms-api.bloomshade-2020.workers.dev',apiPrompt:'',documents:[],sceneMemory:'',apiDraftText:'',rpDraftText:'',backstageDraftText:'',apiDraftPhoto:null,rpDraftPhoto:null,backstageDraftPhoto:null,rpUrl:'',notificationUrl:'',timeTheme:'auto',inputRate:1,outputRate:5,notificationEnabled:false,notificationScene:'',notificationLastSync:'',stayUnlocked:false,rememberAccessToken:false,savedAccessToken:''};
+const initial={comms:[],rp:[],apiMessages:[],backstageMessages:[],outsideMessages:[],apiWorkerUrl:'https://din-comms-api.bloomshade-2020.workers.dev',apiPrompt:'',documents:[],sceneMemory:'',apiDraftText:'',rpDraftText:'',backstageDraftText:'',apiDraftPhoto:null,rpDraftPhoto:null,backstageDraftPhoto:null,rpUrl:'',notificationUrl:'',timeTheme:'auto',inputRate:1,outputRate:5,notificationEnabled:false,notificationScene:'',notificationLastSync:'',stayUnlocked:false,rememberAccessToken:false,savedAccessToken:''};
 const data={...initial,...(unlocked&&typeof unlocked==='object'?unlocked:{})};delete data.oauthClientId;
-for(const k of ['comms','rp','apiMessages','backstageMessages','documents'])if(!Array.isArray(data[k]))data[k]=[];
+for(const k of ['comms','rp','apiMessages','backstageMessages','outsideMessages','documents'])if(!Array.isArray(data[k]))data[k]=[];
 for(const k of ['apiDraftText','rpDraftText','backstageDraftText','apiPrompt','sceneMemory'])if(typeof data[k]!=='string')data[k]='';
 if(typeof data.rememberAccessToken!=='boolean')data.rememberAccessToken=false;
 if(typeof data.stayUnlocked!=='boolean')data.stayUnlocked=false;
@@ -28,9 +29,12 @@ const notificationProjection=s=>JSON.stringify({apiMessages:s.apiMessages,rp:s.r
 let syncTail=Promise.resolve(),syncWanted=false,lastSyncStatus=null,notificationIntent=0,notificationDesired=null,notificationOffTail=Promise.resolve(),notificationOffUnconfirmed=false;
 function checkNotificationIntent(intent){if(intent!==notificationIntent)throw Object.assign(Error('後の操作により通知設定処理を取り消しました'),{cancelled:true});}
 const durable=window.VectorDurableState.create(data,candidate=>window.DinVault.save(candidate),{
- prepare(next,before){next.notificationClientId=before.notificationClientId||uid();next.notificationContextSequence=before.notificationContextSequence||0;if(!before.notificationClientId||notificationProjection(next)!==notificationProjection(before))next.notificationContextSequence++;},
- committed(next,before){if(next.notificationEnabled&&notificationProjection(next)!==notificationProjection(before))queueNotificationSync();}
+ async prepare(next,before){await window.VectorSharedLogLocal?.prepare(next,before);next.notificationClientId=before.notificationClientId||uid();next.notificationContextSequence=before.notificationContextSequence||0;if(!before.notificationClientId||notificationProjection(next)!==notificationProjection(before))next.notificationContextSequence++;},
+ committed(next,before){window.VectorSharedLogLocal?.afterCommit?.();if(next.notificationEnabled&&notificationProjection(next)!==notificationProjection(before))queueNotificationSync();}
 });
+window.VectorSharedLogLocal?.connect?.(durable,{request:workerTransport});
+window.VectorSharedLogLocal?.afterCommit?.();
+window.VectorSharedSetup?.attach(durable,workerTransport);
 const notificationHTTP=window.VectorNotificationHTTP.create(workerTransport);
 const notificationControl=window.VectorNotificationControl.create(durable,workerPostRaw,uid);
 const save=()=>durable.save();
@@ -227,8 +231,8 @@ async function pullNotificationInbox(){if(!token||fetchingInbox)return;fetchingI
   if(conflicts.has(event?.id))continue;
   if(!event||typeof event.id!=='string'||!event.id||typeof event.text!=='string'||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at)))continue;
   const old=next.apiMessages.find(m=>m.id===event.id);
-  if(old&&(old.text!==event.text||old.at!==event.at||old.sender!=='din'||old.source!=='scheduled'||(typeof event.contextVersion==='string'&&old.contextVersion!==event.contextVersion)))continue;
-  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),usage:event.usage||{input_tokens:0,output_tokens:0}});
+  if(old&&(old.text!==event.text||old.at!==event.at||old.sender!=='din'||old.source!=='scheduled'||JSON.stringify(old.sharedLogOrigin)!==JSON.stringify(event.sharedLogOrigin)||(typeof event.contextVersion==='string'&&old.contextVersion!==event.contextVersion)))continue;
+  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),...(event.sharedLogOrigin?{sharedLogOrigin:structuredClone(event.sharedLogOrigin)}:{}),usage:event.usage||{input_tokens:0,output_tokens:0}});
   if(!ids.includes(event.id))ids.push(event.id);
  }
  const u=result.usageTotals;if(u){const p=next.usageTotals.notifications;p.input=Math.max(p.input,Number(u.input)||0);p.output=Math.max(p.output,Number(u.output)||0);}
@@ -302,18 +306,29 @@ async function disablePushNotifications(){
  try{return await operation;}catch(e){if(intent===notificationIntent&&!e.cancelled){lastSyncStatus={pauseReason:'control-unconfirmed'};updateNotifyStatus();}throw e;}
 }
 
-async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;lastSubmit[room]=Date.now();const submittedAt=new Date().toISOString(),submittedRevision=draftRevision[room];const r=rooms[room],text=$(r.input).value.trim(),photo=data[r.photo],state=$(room+'State');if(!text&&!photo){notice('文章か写真を入力してください');return;}if(!validWorker(data.apiWorkerUrl)){state.textContent='SETTINGSでCloudflare Worker URLを確認してください';return;}if(apiCallsToday()>=20){state.textContent='今日は20回の端末側テスト上限です（請求の強制上限ではありません）';return;}let body;try{const inst=instructions(room),history=room==='backstage'?backstageHistory():sharedRPHistory();body=chatRequestBody({message:text||'この添付写真を見てください。',image:photo||null,instructions:inst,history,channel:room,sentAt:submittedAt});}catch(err){state.textContent=err.message;return;}
+async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;lastSubmit[room]=Date.now();const submittedAt=new Date().toISOString(),submittedRevision=draftRevision[room];const r=rooms[room],text=window.VectorSharedLogLocal?$(r.input).value:$(r.input).value.trim(),photo=data[r.photo],state=$(room+'State');if(!text.trim()&&!photo){notice('文章か写真を入力してください');return;}if(!validWorker(data.apiWorkerUrl)){state.textContent='SETTINGSでCloudflare Worker URLを確認してください';return;}if(apiCallsToday()>=20){state.textContent='今日は20回の端末側テスト上限です（請求の強制上限ではありません）';return;}let body;try{const inst=instructions(room),history=room==='backstage'?backstageHistory():sharedRPHistory();body=chatRequestBody({message:text||'この添付写真を見てください。',image:photo||null,instructions:inst,history,channel:room,sentAt:submittedAt});}catch(err){state.textContent=err.message;return;}
  if(!token){const value=prompt('Cloudflare WorkerのDIN_ACCESS_TOKENを入力（OpenAI APIキーではありません）');if(value===null)return;if(value.length<24){state.textContent='トークンが短すぎます';return;}token=value;
  if(data.rememberAccessToken){data.savedAccessToken=token;try{await save();}catch{data.savedAccessToken='';state.textContent='トークンを保管庫に保存できませんでした。送信を中止します。';return;}}
  }
+ let chatIntent;
  busy=true;document.querySelectorAll('[data-send]').forEach(b=>b.disabled=true);state.textContent='返信を取得しています…';
  try{
+ // Opt-in projection persists the original intent, stable IDs and outbox before dispatch.
+ if(window.VectorSharedLogLocal){
+  const operationId='x-'+uid();chatIntent={id:operationId,collection:r.items,status:'dispatched-unknown',senderId:'v-'+uid(),replyId:'v-'+uid()};
+  const sender={id:chatIntent.senderId,exchangeId:operationId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};
+  await durable.commit(next=>{
+   next.sharedLogChatIntents??=[];
+   if(next.sharedLogChatIntents.some(j=>j.collection===r.items&&j.status!=='committed'&&next[r.items].some(m=>m.id===j.senderId&&m.text===sender.text&&JSON.stringify(m.photo)===JSON.stringify(sender.photo))))throw Error('前の送信結果が未確認です。同じ本文の自動再送はできません');
+   next.sharedLogChatIntents.push(chatIntent);next[r.items].push(sender);
+  });
+ }
  try{localStorage.setItem(dailyKey(),String(apiCallsToday()+1));}catch{}
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);let response;try{response=await fetch(apiURL(),{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body});}finally{clearTimeout(timeout)}
  let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(response.status===401){token='';if(data.savedAccessToken){data.savedAccessToken='';await save().catch(()=>{});}}throw Error(result.error||'HTTP '+response.status)}
  if(typeof result.reply!=='string'||!result.reply.trim())throw Error('返答が空でした');
- const exchangeId='x-'+uid();const sender={id:'v-'+uid(),exchangeId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};const reply={id:'v-'+uid(),exchangeId,sender:room==='backstage'?'chappy':'din',at:result.repliedAt||new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
- try{await durable.commit(next=>{next[r.items].push(sender,reply);next.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;next.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;
+ const exchangeId=chatIntent?.id||'x-'+uid();const sender={id:chatIntent?.senderId||'v-'+uid(),exchangeId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};const reply={id:chatIntent?.replyId||'v-'+uid(),exchangeId,sender:room==='backstage'?'chappy':'din',at:result.repliedAt||new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
+ try{await durable.commit(next=>{if(chatIntent){const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='committed';next[r.items].push(reply);}else next[r.items].push(sender,reply);next.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;next.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;
  if(draftRevision[room]===submittedRevision){next[r.draft]='';if(next[r.photo]===photo)next[r.photo]=null;}
  });}catch{state.textContent='返答は届きましたが保存に失敗しました。再送すると再課金される可能性があります。';return;}
  if(draftRevision[room]===submittedRevision){$(r.input).value='';data[r.draft]='';if(data[r.photo]===photo)data[r.photo]=null;}
