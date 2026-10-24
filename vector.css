@@ -84,3 +84,39 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .comms-box .chat-content{max-width:88%;min-width:44px;display:flex;flex-direction:column;align-items:stretch}
 .comms-box .chat-content .chat-bubble{max-width:100%;box-sizing:border-box}
 .comms-box .chat-content .message-actions{margin-top:-8px;align-self:flex-end}
+
+/* COMMS immersive presentation. Other rooms keep their existing layout. */
+.app-shell.inside-comms{background:#222425}
+.inside-comms .app-top{min-height:0;height:calc(var(--safe-top) + 56px);padding:var(--safe-top) 70px 0;display:flex;align-items:center;justify-content:center;background:#222425;color:#f3f1ee;border-bottom:1px solid #414344}
+.inside-comms .vector-wordmark{display:none}
+.inside-comms .top-meta{margin:0;color:inherit;font-size:21px;letter-spacing:.17em;display:flex;align-items:center;gap:8px}
+/* Decorative ring only, not online/read/typing status. */
+.inside-comms .top-meta:before{content:'';width:12px;height:12px;border:1px dotted #a6b0a9;border-radius:50%;display:block}
+.inside-comms .top-nav{bottom:6px}
+.inside-comms .top-nav button{min-width:44px;min-height:44px;color:#f3f1ee}
+#commsMenuToggle{font-size:20px;border:1px solid #9fa39c;border-radius:8px}
+.comms-page{padding:0}
+.comms-page .comms-box{border-radius:0}
+.comms-page .contact-head{display:none}
+.comms-page .messages{padding-left:27px;padding-right:27px}
+.comms-page .composer-area{padding-left:25px;padding-right:25px;padding-bottom:calc(10px + max(9px,var(--safe-bottom)))}
+.comms-page .composer-row textarea{height:99.6px;min-height:99.6px}
+.comms-page .chat-meta{color:#939c96}
+.comms-page .day-divider{color:#939c96;font-size:11px;letter-spacing:.04em}
+.comms-page .send-btn,.comms-page .attach-btn{position:relative}
+.comms-page .send-btn:after,.comms-page .attach-btn:after{content:'';position:absolute;width:44px;height:44px;left:50%;top:50%;transform:translate(-50%,-50%)}
+.comms-menu{position:fixed;inset:auto;top:calc(var(--safe-top) + 60px);right:max(18px,calc((100vw - 440px)/2 + 18px));width:340px;max-width:calc(100vw - 36px);max-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - 80px);overflow:auto;margin:0;border:1px solid #626c65;border-radius:14px;padding:16px;background:#2a302d;color:#f3f1ee;box-shadow:0 12px 28px #0008}
+.comms-menu::backdrop{background:#0005}
+.comms-menu-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.comms-menu h2,.comms-menu h3{font-size:14px;font-weight:500;margin:12px 0}
+.comms-menu button{min-height:44px;background:transparent;border:0;color:inherit;font:inherit;text-align:left}
+#commsMenuClose{min-width:44px;text-align:center;font-size:24px}
+#commsMenuBackstage{width:100%;border-bottom:1px solid #606a62;padding:8px 0}
+.comms-menu .usage-bar{flex-direction:column;font-size:13px;gap:7px;color:#e1e6e1;margin:0}
+.comms-menu .usage-bar span:last-child{color:#b6d3bc}
+.comms-menu p{font-size:11px;line-height:1.6;color:#b6bfb8;margin:12px 0 0}
+.app-shell.comms-keyboard{height:var(--comms-viewport-height);min-height:0}
+@media(max-width:500px){body:has(.inside-comms){align-items:flex-start;background:#222425}}
+.comms-keyboard .comms-menu{max-height:calc(var(--comms-viewport-height) - var(--safe-top) - var(--safe-bottom) - 80px)}
+.comms-keyboard .composer-row textarea{height:clamp(56px,calc(var(--comms-viewport-height) * .25),99.6px);min-height:56px}
+.comms-keyboard .photo-preview img{max-height:44px}

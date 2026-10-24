@@ -36,9 +36,10 @@ const notificationControl=window.VectorNotificationControl.create(durable,worker
 const save=()=>durable.save();
 function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(()=>notice('保存できません。端末の空き容量と保管庫を確認してください')),350);}
 function nav(where){if(!['home','comms','here','backstage','settings'].includes(where))return;
+  if($('commsMenu').open)$('commsMenu').close();
   active=where;document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='screen-'+where));
-  $('screenTitle').textContent=where==='home'?'':where.toUpperCase();$('backHome').hidden=where==='home';$('toBackstage').hidden=where==='home'||where==='backstage'||where==='settings';
-  $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);if(where==='comms')pullNotificationInbox().catch(()=>{});resizeHereComposer();}
+  $('screenTitle').textContent=where==='home'?'':where==='comms'?'DIN':where.toUpperCase();$('backHome').hidden=where==='home';$('toBackstage').hidden=where==='home'||where==='comms'||where==='backstage'||where==='settings';$('commsMenuToggle').hidden=where!=='comms';
+  $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);if(where==='comms')pullNotificationInbox().catch(()=>{});resizeHereComposer();resizeCommsViewport();}
 function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildren();let list=data[r.items];
   if(!list.length){box.append(make('p','empty-note',room==='comms'?'まだ通信履歴はありません。':room==='here'?'まだ記録はありません。':'チャッピーとの相談をここから始められます。'));}
   if(room==='comms'){
@@ -95,6 +96,18 @@ function resizeHereComposer(){
 }
 window.addEventListener('resize',resizeHereComposer);
 window.visualViewport?.addEventListener('resize',resizeHereComposer);
+// COMMS presentation only; no changes to storage, transport or usage calculation.
+const commsMenu=$('commsMenu'),commsMenuToggle=$('commsMenuToggle');
+commsMenuToggle.addEventListener('click',()=>{if(!commsMenu.open){commsMenu.showModal();commsMenuToggle.setAttribute('aria-expanded','true');$('commsMenuClose').focus();}});
+$('commsMenuClose').addEventListener('click',()=>commsMenu.close());
+commsMenu.addEventListener('close',()=>{commsMenuToggle.setAttribute('aria-expanded','false');if(active==='comms')commsMenuToggle.focus();});
+commsMenu.addEventListener('click',e=>{if(e.target!==commsMenu)return;const r=commsMenu.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)commsMenu.close();});
+$('commsMenuBackstage').addEventListener('click',()=>{commsMenu.close();nav('backstage');$('backstageDraft').focus();});
+document.querySelector('label[for="commsPhoto"]').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('commsPhoto').click();}});
+function resizeCommsViewport(){const v=window.visualViewport,shell=$('appShell');const reduced=active==='comms'&&innerWidth<=500&&v&&v.scale===1&&v.height<innerHeight-100;shell.classList.toggle('comms-keyboard',Boolean(reduced));if(reduced)shell.style.setProperty('--comms-viewport-height',v.height+'px');else shell.style.removeProperty('--comms-viewport-height');}
+window.addEventListener('resize',resizeCommsViewport);
+window.visualViewport?.addEventListener('resize',resizeCommsViewport);
+window.visualViewport?.addEventListener('scroll',resizeCommsViewport);
 function usageFor(room){return data.usageTotals[room]||{input:0,output:0};}
 function price(u){return (u.input*(Number(data.inputRate)||0)+u.output*(Number(data.outputRate)||0))/1000000;}
 function usageText(u){return `IN ${u.input.toLocaleString()} / OUT ${u.output.toLocaleString()} tokens`};
