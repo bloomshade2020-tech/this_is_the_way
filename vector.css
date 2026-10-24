@@ -120,3 +120,9 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .comms-keyboard .comms-menu{max-height:calc(var(--comms-viewport-height) - var(--safe-top) - var(--safe-bottom) - 80px)}
 .comms-keyboard .composer-row textarea{height:clamp(56px,calc(var(--comms-viewport-height) * .25),99.6px);min-height:56px}
 .comms-keyboard .photo-preview img{max-height:44px}
+
+/* Approved tighter COMMS spacing; copy row stays 4px below first density sample. */
+.comms-box .messages{gap:4px;padding-top:10px;padding-bottom:10px}
+.comms-page .chat-turn{gap:4px}
+.comms-box .chat-content .message-actions{margin-top:-8px}
+.comms-page .day-divider{margin:4px 0 8px}
