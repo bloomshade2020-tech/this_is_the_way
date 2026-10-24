@@ -78,3 +78,9 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .here-page[data-time="evening"]{--here-base:#e4c9c7;}
 .here-page[data-time="night"]{--here-base:#bec8d8;}
 .here-page .day-divider,.here-page .more-btn{color:#465149;}
+
+/* COMMS only: group copy with its bubble; retain a 44px touch target. */
+.comms-box .messages{gap:12px}
+.comms-box .chat-content{max-width:88%;min-width:44px;display:flex;flex-direction:column;align-items:stretch}
+.comms-box .chat-content .chat-bubble{max-width:100%;box-sizing:border-box}
+.comms-box .chat-content .message-actions{margin-top:-8px;align-self:flex-end}
