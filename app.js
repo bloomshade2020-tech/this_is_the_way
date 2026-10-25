@@ -38,7 +38,7 @@ window.VectorSharedSetup?.attach(durable,workerTransport);
 const notificationHTTP=window.VectorNotificationHTTP.create(workerTransport);
 const notificationControl=window.VectorNotificationControl.create(durable,workerPostRaw,uid);
 const save=()=>durable.save();
-function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(()=>notice('保存できません。端末の空き容量と保管庫を確認してください')),350);}
+function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(err=>notice(err?.message==='DUPLICATE_SOURCE_ID'?'記録IDの重複・形式を確認できず保存できません。下書きを控え、画面は閉じないでください。':'保存できませんでした。下書きを控え、画面を閉じずに状況を確認してください。')),350);}
 function nav(where){if(!['home','comms','here','backstage','settings'].includes(where))return;
   if($('commsMenu').open)$('commsMenu').close();
   active=where;document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='screen-'+where));

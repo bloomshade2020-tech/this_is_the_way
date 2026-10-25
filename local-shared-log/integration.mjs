@@ -8,7 +8,19 @@ export function createProjection({documentId,logId,namespace,collections,relay})
  const receiptUpdates=new WeakMap();
  const projection={
  connect(durable,{request}={}){this.store=this.createStore(durable);if(relay)this.relay=createRelayDrain({store:this.store,logId,enrollmentId:relay.enrollmentId,enabled:relay.enabled,request});},
- afterCommit(){if(this.relay&&!this.draining){this.draining=true;queueMicrotask(async()=>{try{await this.relay.flush();this.lastRelayError=null;}catch(e){this.lastRelayError=e.message;}finally{this.draining=false;}});}},
+ afterCommit(){
+  if(!this.relay)return;this.drainRequested=true;
+  if(this.draining)return;this.draining=true;
+  queueMicrotask(async()=>{
+   try{
+    // A reply or another original can commit while a snapshot is being sent.
+    // Finish successful work, then inspect the latest durable queue as needed.
+    do{this.drainRequested=false;await this.relay.flush();}while(this.drainRequested);
+    this.lastRelayError=null;
+   }catch(e){this.lastRelayError=e.message;} // Stop on uncertainty; never spin/retry it.
+   finally{this.draining=false;}
+  });
+ },
  createStore(durable){return {
   load:async()=>structuredClone(durable.snapshot().sharedLogOutbox||{version:1,target:binding,namespace,entries:[]}),
   save:async incoming=>{
@@ -42,17 +54,40 @@ export function createProjection({documentId,logId,namespace,collections,relay})
   if(next.sharedLogOutbox && !same(next.sharedLogOutbox,before.sharedLogOutbox))throw Error('OUTBOX_DIRECT_EDIT');
   for(const {key,map} of collections){
    if(typeof map!=='function' || !Array.isArray(next[key]) || !Array.isArray(before[key]))throw Error('INVALID_COLLECTION');
-   const prior=new Map(before[key].map(x=>[x.id,x]));
-   if(prior.size!==before[key].length)throw Error('DUPLICATE_SOURCE_ID');
+   // Old app history may have numeric/missing IDs or repeated legacy IDs.
+   // It is an unexported baseline, not a batch of new source records. Preserve
+   // exact legacy occurrences without assigning IDs, editing or importing them.
+   const counts=new Map();
+   for(const record of before[key]){
+    if(!record||typeof record!=='object'||Array.isArray(record))throw Error('INVALID_COLLECTION');
+    counts.set(record.id,(counts.get(record.id)||0)+1);
+   }
+   const validId=id=>typeof id==='string'&&id.length>0;
+   const prior=new Map(),legacy=new Map(),ambiguous=new Set(),legacySources=new Set();
+   const captured=new Set(box.entries.map(entry=>entry.event.sourceRecordId));
+   for(const record of before[key]){
+    if(validId(record.id)&&counts.get(record.id)===1){prior.set(record.id,record);continue;}
+    // Never reinterpret a malformed/duplicated already-captured source as legacy.
+    if(record.sharedLogOrigin||captured.has(key+':'+record.id))throw Error('DUPLICATE_SOURCE_ID');
+    ambiguous.add(record.id);legacySources.add(key+':'+record.id);const fingerprint=JSON.stringify(record);
+    legacy.set(fingerprint,(legacy.get(fingerprint)||0)+1);
+   }
    const seen=new Set();
    for(const record of next[key]){
-    if(typeof record.id!=='string'||!record.id||seen.has(record.id))throw Error('DUPLICATE_SOURCE_ID');seen.add(record.id);
+    if(!record||typeof record!=='object'||Array.isArray(record))throw Error('INVALID_COLLECTION');
+    if(!validId(record.id)||ambiguous.has(record.id)){
+     const fingerprint=JSON.stringify(record),remaining=legacy.get(fingerprint)||0;
+     if(!remaining)throw Error('DUPLICATE_SOURCE_ID');
+     legacy.set(fingerprint,remaining-1);continue;
+    }
+    if(seen.has(record.id))throw Error('DUPLICATE_SOURCE_ID');seen.add(record.id);
     if(prior.has(record.id)){
      const previous=prior.get(record.id);
      if(previous.text!==record.text || previous.sender!==record.sender || previous.at!==record.at ||
        !same(map(structuredClone(previous)),map(structuredClone(record))) || !same(previous.sharedLogOrigin,record.sharedLogOrigin))throw Error('EDIT_MAPPING_UNSET');
      continue;
     }
+    if(legacySources.has(key+':'+record.id))throw Error('DUPLICATE_SOURCE_ID');
     const mapped=map(structuredClone(record));
     if(!mapped || mapped.body!==record.text)throw Error('ORIGINAL_TEXT_REQUIRED');
     const origin=record.sharedLogOrigin;
