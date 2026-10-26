@@ -2,7 +2,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const oldRoot=process.argv[2]&&path.resolve(process.argv[2]),newRoot=path.resolve(process.argv[3]||path.join(__dirname,'../..'));
 if(!oldRoot)throw Error('Pass the previous app root as the first argument');
-const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',currentDraft='Synthetic draft copied before update.',cache='vector-shared-setup-v2-20261024-legacy-source-id-v1-20261025-assets';
+const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',currentDraft='Synthetic draft copied before update.',cache='vector-shared-setup-v2-20261024-shared-context-m4-20261025-assets';
 (async()=>{
  let served=oldRoot,unexpected=0,events=0,chats=0;
  const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local'),f=path.resolve(served,'.'+(u.pathname==='/'?'/index.html':u.pathname));if(!f.startsWith(served+'/')||!fs.existsSync(f)){res.statusCode=404;return res.end();}res.setHeader('cache-control','no-cache');res.setHeader('content-type',/\.m?js$/.test(f)?'application/javascript':f.endsWith('.html')?'text/html':f.endsWith('.css')?'text/css':'application/octet-stream');res.end(fs.readFileSync(f));});

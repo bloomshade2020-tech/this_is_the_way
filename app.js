@@ -170,9 +170,9 @@ function contextRecord(m,reference=false){
  if(content.length>3000)throw Error('履歴の出典情報が長すぎるため送信できません。原文は保持しています');
  return {role:reference?'user':m.sender==='me'?'user':'assistant',content};
 }
-function sharedRPHistory(limit=24,reference=false){return recentContext(sharedRPEvents(),limit).map(m=>contextRecord(m,reference));}
-function backstageHistory(){
- const own=data.backstageMessages.map(m=>({...m,channel:'backstage'}));
+function sharedRPHistory(limit=24,reference=false,excludeId=null){return recentContext(sharedRPEvents().filter(m=>m.id!==excludeId),limit).map(m=>contextRecord(m,reference));}
+function backstageHistory(excludeId=null){
+ const own=data.backstageMessages.filter(m=>m.id!==excludeId).map(m=>({...m,channel:'backstage'}));
  return [...sharedRPHistory(12,true),...recentContext(own,12).map(m=>contextRecord(m))];
 }
 function notificationEvents(){return notificationRPEvents().slice(-14).map(m=>({id:m.id,channel:m.channel,sender:m.sender==='me'?'me':'din',at:m.at||null,text:String(m.text||'').slice(0,850)}));}
@@ -319,13 +319,24 @@ async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;l
   const sender={id:chatIntent.senderId,exchangeId:operationId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};
   await durable.commit(next=>{
    next.sharedLogChatIntents??=[];
-   if(next.sharedLogChatIntents.some(j=>j.collection===r.items&&j.status!=='committed'&&next[r.items].some(m=>m.id===j.senderId&&m.text===sender.text&&JSON.stringify(m.photo)===JSON.stringify(sender.photo))))throw Error('前の送信結果が未確認です。同じ本文の自動再送はできません');
-   next.sharedLogChatIntents.push(chatIntent);next[r.items].push(sender);
+   const matches=next.sharedLogChatIntents.filter(j=>j.collection===r.items&&j.status!=='committed'&&next[r.items].some(m=>m.id===j.senderId&&m.text===sender.text&&JSON.stringify(m.photo)===JSON.stringify(sender.photo)));
+   if(matches.length){
+    if(matches.length!==1||matches[0].status!=='not-started')throw Error('前の送信結果が未確認です。同じ本文の自動再送はできません');
+    const prior=matches[0],original=next[r.items].find(m=>m.id===prior.senderId);
+    // Only this explicit send action retries. Preserve original identity/time
+    // and exclude that sender from the legacy history part of this request.
+    const request=JSON.parse(body);request.sentAt=original.at;
+    request.history=room==='backstage'?backstageHistory(original.id):sharedRPHistory(24,false,original.id);
+    body=chatRequestBody(request);prior.status='dispatched-unknown';chatIntent=structuredClone(prior);
+   }else{next.sharedLogChatIntents.push(chatIntent);next[r.items].push(sender);}
   });
+  // Supply only the already committed canonical event; never invent a receipt.
+  // The producer checks owner policy, namespace, hashes, source and current text.
+  if(room!=='backstage'&&!photo){const event=durable.snapshot().sharedLogOutbox?.entries?.find(e=>e.event.sourceRecordId===r.items+':'+chatIntent.senderId)?.event;if(event&&event.body===JSON.parse(body).message)body=chatRequestBody({...JSON.parse(body),currentEvent:event});}
  }
  try{localStorage.setItem(dailyKey(),String(apiCallsToday()+1));}catch{}
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);let response;try{response=await fetch(apiURL(),{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body});}finally{clearTimeout(timeout)}
- let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(response.status===401){token='';if(data.savedAccessToken){data.savedAccessToken='';await save().catch(()=>{});}}throw Error(result.error||'HTTP '+response.status)}
+ let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(chatIntent&&response.status===409&&result.generationStarted===false){await durable.commit(next=>{const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='not-started';});throw Error('返信生成は開始されていません。接続状態を確認後、送信ボタンから同じ内容を再試行できます');}if(response.status===401){token='';if(data.savedAccessToken){data.savedAccessToken='';await save().catch(()=>{});}}throw Error(result.error||'HTTP '+response.status)}
  if(typeof result.reply!=='string'||!result.reply.trim())throw Error('返答が空でした');
  const exchangeId=chatIntent?.id||'x-'+uid();const sender={id:chatIntent?.senderId||'v-'+uid(),exchangeId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};const reply={id:chatIntent?.replyId||'v-'+uid(),exchangeId,sender:room==='backstage'?'chappy':'din',at:result.repliedAt||new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
  try{await durable.commit(next=>{if(chatIntent){const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='committed';next[r.items].push(reply);}else next[r.items].push(sender,reply);next.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;next.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;
