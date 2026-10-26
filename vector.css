@@ -126,3 +126,16 @@ main{min-height:0;flex:1;display:flex;flex-direction:column} .page{display:none;
 .comms-page .chat-turn{gap:4px}
 .comms-box .chat-content .message-actions{margin-top:-8px}
 .comms-page .day-divider{margin:4px 0 8px}
+
+/* Generation receipts stay behind a small per-reply control. */
+.context-audit-button{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:6px 10px;border:0;border-radius:6px;background:transparent;color:inherit;opacity:.7;font:inherit;font-size:20px;cursor:pointer}
+.context-audit-button:hover{opacity:1;background:#88998a18}
+.context-audit-button:focus-visible{outline:2px solid currentColor;outline-offset:2px;opacity:1}
+.context-audit-dialog{width:min(92vw,600px);max-height:85vh;max-height:85dvh;overflow:auto;box-sizing:border-box;border:1px solid #adb5a9;border-radius:16px;background:#f8f7f1;color:#303a35;padding:18px}
+.context-audit-dialog::backdrop{background:#17251e70}
+.context-audit-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.context-audit-heading h2{font-size:17px;margin:0}
+.context-audit-heading button{min-width:44px;min-height:44px;border:0;background:transparent;font-size:24px;color:inherit;cursor:pointer}
+.context-audit-dialog pre{white-space:pre-wrap;overflow-wrap:anywhere;font:13px/1.75 system-ui,sans-serif}
+.context-audit-dialog p{font-size:12px;line-height:1.7;color:#637166}
+#contextAuditCopy{min-height:44px;border:1px solid #c5cdc2;border-radius:8px;background:transparent;color:inherit;padding:6px 12px;cursor:pointer}

@@ -1,6 +1,6 @@
 const BUILD='vector-shared-setup-v2-20261024';
-const CACHE=BUILD+'-shared-context-m4-20261025-assets';
-const ASSETS=['./notification-diagnostics.js','./shared-log-setup.js','./local-shared-log/installer.mjs','./local-shared-log/integration.mjs','./local-shared-log/core.mjs','./local-shared-log/relay.mjs','./','./index.html','./vector.css','./app.js','./durable-state.js','./notification-context.js','./notification-control.js','./notification-http.js','./vault.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-192.png?v=vault-a-20261021','./icon-512.png?v=vault-a-20261021'];
+const CACHE=BUILD+'-context-audit-20261026-assets';
+const ASSETS=['./context-audit.js','./notification-diagnostics.js','./shared-log-setup.js','./local-shared-log/installer.mjs','./local-shared-log/integration.mjs','./local-shared-log/core.mjs','./local-shared-log/relay.mjs','./','./index.html','./vector.css','./app.js','./durable-state.js','./notification-context.js','./notification-control.js','./notification-http.js','./vault.js','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-192.png?v=vault-a-20261021','./icon-512.png?v=vault-a-20261021'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE&&(k.startsWith('din-comms-ui-')||k.startsWith('vector-'))).map(k=>caches.delete(k)))));self.clients.claim()});
 // A release serves its precached assets together; network cannot mix code revisions.

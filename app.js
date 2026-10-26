@@ -41,21 +41,22 @@ const save=()=>durable.save();
 function autosave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save().catch(err=>notice(err?.message==='DUPLICATE_SOURCE_ID'?'記録IDの重複・形式を確認できず保存できません。下書きを控え、画面は閉じないでください。':'保存できませんでした。下書きを控え、画面を閉じずに状況を確認してください。')),350);}
 function nav(where){if(!['home','comms','here','backstage','settings'].includes(where))return;
   if($('commsMenu').open)$('commsMenu').close();
+  if($('contextAuditDialog').open)$('contextAuditDialog').close();
   active=where;document.querySelectorAll('.page').forEach(el=>el.classList.toggle('active',el.id==='screen-'+where));
   $('screenTitle').textContent=where==='home'?'':where==='comms'?'DIN':where.toUpperCase();$('backHome').hidden=where==='home';$('toBackstage').hidden=where==='home'||where==='comms'||where==='backstage'||where==='settings';$('commsMenuToggle').hidden=where!=='comms';
   $('appShell').classList.toggle('inside-comms',where==='comms');if(where==='settings')renderSettings();if(where==='here')applyTimeTheme();if(rooms[where])renderRoom(where);if(where==='comms')pullNotificationInbox().catch(()=>{});resizeHereComposer();resizeCommsViewport();}
 function renderRoom(room){const r=rooms[room],box=$(r.thread);box.replaceChildren();let list=data[r.items];
   if(!list.length){box.append(make('p','empty-note',room==='comms'?'まだ通信履歴はありません。':room==='here'?'まだ記録はありません。':'チャッピーとの相談をここから始められます。'));}
   if(room==='comms'){
-    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('div','chat-turn'+(m.sender==='me'?' mine':''));w.append(make('div','chat-meta',(m.sender==='me'?'YOU':'DIN')+'  /  '+msgTime(m.at)));const content=m.photo?w:make('div','chat-content');content.append(make('div','chat-bubble',m.text||''));addPhoto(content,m.photo,'chat-photo');addBodyCopy(content,m);if(content!==w)w.append(content);box.append(w);}
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('div','chat-turn'+(m.sender==='me'?' mine':''));w.append(make('div','chat-meta',(m.sender==='me'?'YOU':'DIN')+'  /  '+msgTime(m.at)));const content=m.photo?w:make('div','chat-content');content.append(make('div','chat-bubble',m.text||''));addPhoto(content,m.photo,'chat-photo');addBodyCopy(content,m,room);if(content!==w)w.append(content);box.append(w);}
   }else if(room==='here'){
-    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('article','here-turn'+(m.sender==='me'?' you':' din'));const head=make('div','here-head');head.append(make('span','speaker-dot'));head.append(make('strong','',m.sender==='me'?'YOU':'DIN'));const more=make('button','more-btn','···');more.type='button';more.title='日時と記録IDを確認';more.addEventListener('click',()=>{const info=(m.sender==='me'?'YOU':'DIN')+'\n'+(m.at||'日時不明')+'\n'+(m.id||'IDなし');if(confirm(info+'\n\n記録情報をコピーしますか？'))navigator.clipboard?.writeText(info).then(()=>notice('記録情報をコピーしました')).catch(()=>notice(info));});head.append(more);w.append(head);w.append(make('div','here-body',m.text||''));addPhoto(w,m.photo,'here-photo');addBodyCopy(w,m);box.append(w);}
+    let prev='';for(const m of list){const d=msgDay(m.at);if(d!==prev){box.append(make('div','day-divider',d));prev=d;}const w=make('article','here-turn'+(m.sender==='me'?' you':' din'));const head=make('div','here-head');head.append(make('span','speaker-dot'));head.append(make('strong','',m.sender==='me'?'YOU':'DIN'));const more=make('button','more-btn','···');more.type='button';more.title='日時・記録ID・生成時の文脈を確認';more.setAttribute('aria-label',more.title);more.addEventListener('click',()=>showRecordInfo(m,room,more));head.append(more);w.append(head);w.append(make('div','here-body',m.text||''));addPhoto(w,m.photo,'here-photo');addBodyCopy(w,m);box.append(w);}
   }else{
     for(const m of list){const w=make('article','back-turn'+(m.sender==='me'?' mine':''));w.append(make('div','back-head',(m.sender==='me'?'YOU':'CHAPPY')+'  /  '+msgTime(m.at)));w.append(make('div','back-body',m.text||''));addPhoto(w,m.photo,'here-photo');addBodyCopy(w,m);box.append(w);}
   }
   renderPhotoPreview(room);updateUsage();if(room==='here')resizeHereComposer();requestAnimationFrame(()=>$(r.scroll).scrollTop=$(r.scroll).scrollHeight);
 }
-function addBodyCopy(parent,message){
+function addBodyCopy(parent,message,room){
  const text=typeof message.text==='string'?message.text:'';
  if(!text)return;
  const row=make('div','message-actions'),button=make('button','body-copy');
@@ -75,8 +76,22 @@ function addBodyCopy(parent,message){
   }catch{notice('コピーできませんでした。本文を長押し、または選択してコピーしてください。');}
   finally{button.disabled=false;}
  });
- row.append(button);parent.append(row);
+ row.append(button);
+ if(room==='comms'&&message.sender==='din'){const audit=make('button','context-audit-button','···');audit.type='button';audit.title='生成時の文脈を確認';audit.setAttribute('aria-label',audit.title);audit.addEventListener('click',()=>showRecordInfo(message,room,audit));row.prepend(audit);}
+ parent.append(row);
 }
+// Read-only, on-demand receipt display; never refreshes sources or fills old records.
+let auditTrigger=null;
+function showRecordInfo(message,room,trigger){
+ const dialog=$('contextAuditDialog');auditTrigger=trigger;
+ $('contextAuditIdentity').textContent=(message.sender==='me'?'YOU':'DIN')+' / '+room.toUpperCase()+'\n'+(message.at||'日時不明')+'\n'+(message.id||'IDなし');
+ $('contextAuditText').textContent=window.VectorContextAudit?.describe(message,room)||'生成時の文脈：未記録';
+ if(!dialog.open)dialog.showModal();$('contextAuditClose').focus();
+}
+$('contextAuditClose').addEventListener('click',()=>$('contextAuditDialog').close());
+$('contextAuditDialog').addEventListener('close',()=>{if($('contextAuditDialog').open)return;const trigger=auditTrigger;auditTrigger=null;$('contextAuditIdentity').textContent='';$('contextAuditText').textContent='';if(trigger?.isConnected)trigger.focus();});
+$('contextAuditCopy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText($('contextAuditIdentity').textContent);notice('記録情報をコピーしました');}catch{notice('記録情報をコピーできませんでした');}});
+$('contextAuditDialog').addEventListener('click',e=>{if(e.target!==e.currentTarget)return;const r=e.currentTarget.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.currentTarget.close();});
 function addPhoto(parent,photo,cls){if(typeof photo!=='string'||!photo.startsWith('data:image/jpeg;base64,'))return;const i=make('img',cls);i.src=photo;i.alt='添付された写真';i.loading='lazy';parent.append(i);}
 function renderPhotoPreview(room){const r=rooms[room],node=$(r.preview),photo=data[r.photo];node.replaceChildren();node.hidden=!photo;if(!photo)return;addPhoto(node,photo,'');const b=make('button','', '写真を外す');b.type='button';b.addEventListener('click',async()=>{draftRevision[room]++;data[r.photo]=null;renderPhotoPreview(room);try{await save();}catch{notice('保存に失敗しました');}});node.append(b);}
 async function readPhoto(file){if(!file.type.startsWith('image/')||file.size>18000000)throw Error('18MB以内の画像を選んでください');let bitmap;try{bitmap=await createImageBitmap(file);}catch{throw Error('この画像形式は読み込めません');}
@@ -232,7 +247,7 @@ async function pullNotificationInbox(){if(!token||fetchingInbox)return;fetchingI
   if(!event||typeof event.id!=='string'||!event.id||typeof event.text!=='string'||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at)))continue;
   const old=next.apiMessages.find(m=>m.id===event.id);
   if(old&&(old.text!==event.text||old.at!==event.at||old.sender!=='din'||old.source!=='scheduled'||JSON.stringify(old.sharedLogOrigin)!==JSON.stringify(event.sharedLogOrigin)||(typeof event.contextVersion==='string'&&old.contextVersion!==event.contextVersion)))continue;
-  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),...(event.sharedLogOrigin?{sharedLogOrigin:structuredClone(event.sharedLogOrigin)}:{}),usage:event.usage||{input_tokens:0,output_tokens:0}});
+  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),...(event.sharedLogOrigin?{sharedLogOrigin:structuredClone(event.sharedLogOrigin)}:{}),usage:event.usage||{input_tokens:0,output_tokens:0},...(globalThis.VectorContextAudit?{generationAudit:globalThis.VectorContextAudit.notification(event)}:{})});
   if(!ids.includes(event.id))ids.push(event.id);
  }
  const u=result.usageTotals;if(u){const p=next.usageTotals.notifications;p.input=Math.max(p.input,Number(u.input)||0);p.output=Math.max(p.output,Number(u.output)||0);}
@@ -339,6 +354,7 @@ async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;l
  let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(chatIntent&&response.status===409&&result.generationStarted===false){await durable.commit(next=>{const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='not-started';});throw Error('返信生成は開始されていません。接続状態を確認後、送信ボタンから同じ内容を再試行できます');}if(response.status===401){token='';if(data.savedAccessToken){data.savedAccessToken='';await save().catch(()=>{});}}throw Error(result.error||'HTTP '+response.status)}
  if(typeof result.reply!=='string'||!result.reply.trim())throw Error('返答が空でした');
  const exchangeId=chatIntent?.id||'x-'+uid();const sender={id:chatIntent?.senderId||'v-'+uid(),exchangeId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};const reply={id:chatIntent?.replyId||'v-'+uid(),exchangeId,sender:room==='backstage'?'chappy':'din',at:result.repliedAt||new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
+ if(room!=='backstage'&&window.VectorContextAudit)reply.generationAudit=window.VectorContextAudit.manual(result.sharedContext,{messageId:reply.id,channel:room});
  try{await durable.commit(next=>{if(chatIntent){const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='committed';next[r.items].push(reply);}else next[r.items].push(sender,reply);next.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;next.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;
  if(draftRevision[room]===submittedRevision){next[r.draft]='';if(next[r.photo]===photo)next[r.photo]=null;}
  });}catch{state.textContent='返答は届きましたが保存に失敗しました。再送すると再課金される可能性があります。';return;}
@@ -375,7 +391,7 @@ $('saveLinks').addEventListener('click',async()=>{const rp=$('rpUrl').value.trim
 function openLink(kind){const link=data[kind];if(link&&validChatURL(link))window.open(link,'_blank','noopener,noreferrer');else notice('先にChatGPTのURLを登録してください');}
 $('openRp').addEventListener('click',()=>openLink('rpUrl'));$('openNotif').addEventListener('click',()=>openLink('notificationUrl'));
 $('exportBackup').addEventListener('click',async()=>{try{await save();await durable.flush();await window.DinVault.flush();const blob=new Blob([JSON.stringify(window.DinVault.encryptedBackup(),null,2)],{type:'application/json'});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='vector-encrypted-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),6000);notice('暗号化バックアップを保存しました');}catch{notice('バックアップに失敗しました')}});
-$('lockNow').addEventListener('click',async()=>{++notificationIntent;notificationDesired='locked';clearTimeout(saveTimer);try{const saved=save(),closing=durable.close();await Promise.all([saved,closing]);await window.DinVault.lock();}catch{durable.reopen();notice('保存できなかったためロック処理を中止しました。再度お試しください');}});
+$('lockNow').addEventListener('click',async()=>{if($('contextAuditDialog').open)$('contextAuditDialog').close();++notificationIntent;notificationDesired='locked';clearTimeout(saveTimer);try{const saved=save(),closing=durable.close();await Promise.all([saved,closing]);await window.DinVault.lock();}catch{durable.reopen();notice('保存できなかったためロック処理を中止しました。再度お試しください');}});
 document.querySelectorAll('[data-clear]').forEach(b=>b.addEventListener('click',async()=>{const room=b.dataset.clear;const r=rooms[room];if(!confirm(room.toUpperCase()+'の履歴を消去しますか？\n復元には事前のバックアップが必要です。'))return;const ids=new Set(data[r.items].map(m=>m.id));try{await durable.commit(next=>{next[r.items]=next[r.items].filter(m=>!ids.has(m.id));});renderRoom(room);renderSettings();notice('履歴を消去しました')}catch{notice('消去できませんでした')}}));
 document.querySelectorAll('.open-panel').forEach(r=>{r.addEventListener('click',()=>{const p=$('panel-'+r.dataset.panel);p.hidden=!p.hidden;});});
 document.querySelectorAll('[data-nav]').forEach(b=>b.addEventListener('click',()=>nav(b.dataset.nav)));$('backHome').addEventListener('click',()=>nav('home'));$('toBackstage').addEventListener('click',()=>nav('backstage'));
