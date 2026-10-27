@@ -246,8 +246,8 @@ async function pullNotificationInbox(){if(!token||fetchingInbox)return;fetchingI
   if(conflicts.has(event?.id))continue;
   if(!event||typeof event.id!=='string'||!event.id||typeof event.text!=='string'||typeof event.at!=='string'||!Number.isFinite(Date.parse(event.at)))continue;
   const old=next.apiMessages.find(m=>m.id===event.id);
-  if(old&&(old.text!==event.text||old.at!==event.at||old.sender!=='din'||old.source!=='scheduled'||JSON.stringify(old.sharedLogOrigin)!==JSON.stringify(event.sharedLogOrigin)||(typeof event.contextVersion==='string'&&old.contextVersion!==event.contextVersion)))continue;
-  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),...(event.sharedLogOrigin?{sharedLogOrigin:structuredClone(event.sharedLogOrigin)}:{}),usage:event.usage||{input_tokens:0,output_tokens:0},...(globalThis.VectorContextAudit?{generationAudit:globalThis.VectorContextAudit.notification(event)}:{})});
+  if(old&&(old.text!==event.text||old.at!==event.at||old.sender!=='din'||old.source!=='scheduled'||JSON.stringify(old.sharedLogOrigin)!==JSON.stringify(event.sharedLogOrigin)||JSON.stringify(old.sharedRoom)!==JSON.stringify(event.sharedRoom)||(typeof event.contextVersion==='string'&&old.contextVersion!==event.contextVersion)))continue;
+  if(!old)next.apiMessages.push({id:event.id,sender:'din',at:event.at,text:event.text,source:'scheduled',...(typeof event.contextVersion==='string'?{contextVersion:event.contextVersion}:{}),...(event.sharedLogOrigin?{sharedLogOrigin:structuredClone(event.sharedLogOrigin)}:{}),...(event.sharedRoom?{sharedRoom:structuredClone(event.sharedRoom)}:{}),usage:event.usage||{input_tokens:0,output_tokens:0},...(globalThis.VectorContextAudit?{generationAudit:globalThis.VectorContextAudit.notification(event)}:{})});
   if(!ids.includes(event.id))ids.push(event.id);
  }
  const u=result.usageTotals;if(u){const p=next.usageTotals.notifications;p.input=Math.max(p.input,Number(u.input)||0);p.output=Math.max(p.output,Number(u.output)||0);}
@@ -332,7 +332,9 @@ async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;l
  if(window.VectorSharedLogLocal){
   const operationId='x-'+uid();chatIntent={id:operationId,collection:r.items,status:'dispatched-unknown',senderId:'v-'+uid(),replyId:'v-'+uid()};
   const sender={id:chatIntent.senderId,exchangeId:operationId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};
-  await durable.commit(next=>{
+  const roomPrepared=await window.VectorSharedLogLocal.room?.prepareChat({intent:chatIntent,sender});
+  if(roomPrepared){chatIntent=roomPrepared.intent;const request=JSON.parse(body);request.sentAt=roomPrepared.sender.at;request.history=room==='backstage'?backstageHistory(roomPrepared.sender.id):sharedRPHistory(24,false,roomPrepared.sender.id);body=chatRequestBody({...request,currentEvent:roomPrepared.currentEvent,sharedRoom:roomPrepared.sharedRoom});}
+  else await durable.commit(next=>{
    next.sharedLogChatIntents??=[];
    const matches=next.sharedLogChatIntents.filter(j=>j.collection===r.items&&j.status!=='committed'&&next[r.items].some(m=>m.id===j.senderId&&m.text===sender.text&&JSON.stringify(m.photo)===JSON.stringify(sender.photo)));
    if(matches.length){
@@ -349,11 +351,15 @@ async function sendRoom(room){if(busy||Date.now()-lastSubmit[room]<1400)return;l
   // The producer checks owner policy, namespace, hashes, source and current text.
   if(room!=='backstage'&&!photo){const event=durable.snapshot().sharedLogOutbox?.entries?.find(e=>e.event.sourceRecordId===r.items+':'+chatIntent.senderId)?.event;if(event&&event.body===JSON.parse(body).message)body=chatRequestBody({...JSON.parse(body),currentEvent:event});}
  }
+ // All request encoding/size checks have completed. Only now cross the durable
+ // dispatch boundary; a local preflight error is known not to have generated.
+ if(chatIntent?.sharedRoom)await window.VectorSharedLogLocal.room.markDispatch(chatIntent);
  try{localStorage.setItem(dailyKey(),String(apiCallsToday()+1));}catch{}
  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),90000);let response;try{response=await fetch(apiURL(),{method:'POST',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body});}finally{clearTimeout(timeout)}
  let result;try{result=await response.json()}catch{throw Error('APIからJSONを取得できませんでした')};if(!response.ok){if(chatIntent&&response.status===409&&result.generationStarted===false){await durable.commit(next=>{const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='not-started';});throw Error('返信生成は開始されていません。接続状態を確認後、送信ボタンから同じ内容を再試行できます');}if(response.status===401){token='';if(data.savedAccessToken){data.savedAccessToken='';await save().catch(()=>{});}}throw Error(result.error||'HTTP '+response.status)}
  if(typeof result.reply!=='string'||!result.reply.trim())throw Error('返答が空でした');
  const exchangeId=chatIntent?.id||'x-'+uid();const sender={id:chatIntent?.senderId||'v-'+uid(),exchangeId,sender:'me',at:submittedAt,text:text||'［写真］',photo:photo||null};const reply={id:chatIntent?.replyId||'v-'+uid(),exchangeId,sender:room==='backstage'?'chappy':'din',at:result.repliedAt||new Date().toISOString(),text:result.reply,usage:result.usage||{input_tokens:0,output_tokens:0}};
+ if(chatIntent?.sharedRoom)reply.sharedRoom=structuredClone(chatIntent.sharedRoom);
  if(room!=='backstage'&&window.VectorContextAudit)reply.generationAudit=window.VectorContextAudit.manual(result.sharedContext,{messageId:reply.id,channel:room});
  try{await durable.commit(next=>{if(chatIntent){const j=next.sharedLogChatIntents.find(j=>j.id===chatIntent.id);if(j?.status!=='dispatched-unknown')throw Error('CHAT_INTENT_CONFLICT');j.status='committed';next[r.items].push(reply);}else next[r.items].push(sender,reply);next.usageTotals[room].input+=Number(reply.usage.input_tokens)||0;next.usageTotals[room].output+=Number(reply.usage.output_tokens)||0;
  if(draftRevision[room]===submittedRevision){next[r.draft]='';if(next[r.photo]===photo)next[r.photo]=null;}

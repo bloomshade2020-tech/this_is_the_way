@@ -12,7 +12,7 @@ export function createRelayDrain({store,logId,enrollmentId,request,enabled=()=>f
    await validateEvent(entry.event,logId);if(enabled()!==true)throw Error('RELAY_DISABLED');
    entry.status='unknown';await store.save(state);
    if(enabled()!==true)throw Error('RELAY_DISABLED');
-   const reply=await request('/shared-log/events',{enrollmentId,event:entry.event});
+   const reply=await request('/shared-log/events',{enrollmentId,event:entry.event,...(entry.room?{room:entry.room}:{})});
    if(reply?.status!=='confirmed'||reply.eventId!==entry.event.eventId||reply.recordHash!==entry.event.recordHash)throw Error('DRIVE_RECEIPT_UNVERIFIED');
    entry.status='confirmed';await store.save(state);
   }

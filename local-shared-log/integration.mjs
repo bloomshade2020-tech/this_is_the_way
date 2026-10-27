@@ -1,3 +1,4 @@
+import {validateRoomTag} from './room-client.mjs';
 import {createRelayDrain} from './relay.mjs';
 import {target,makeEvent,validateEvent} from './core.mjs';
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -84,7 +85,7 @@ export function createProjection({documentId,logId,namespace,collections,relay})
     if(prior.has(record.id)){
      const previous=prior.get(record.id);
      if(previous.text!==record.text || previous.sender!==record.sender || previous.at!==record.at ||
-       !same(map(structuredClone(previous)),map(structuredClone(record))) || !same(previous.sharedLogOrigin,record.sharedLogOrigin))throw Error('EDIT_MAPPING_UNSET');
+       !same(map(structuredClone(previous)),map(structuredClone(record))) || !same(previous.sharedLogOrigin,record.sharedLogOrigin)||!same(previous.sharedRoom,record.sharedRoom))throw Error('EDIT_MAPPING_UNSET');
      continue;
     }
     if(legacySources.has(key+':'+record.id))throw Error('DUPLICATE_SOURCE_ID');
@@ -96,7 +97,7 @@ export function createProjection({documentId,logId,namespace,collections,relay})
     if(origin&&(origin.eventId!==event.eventId||origin.recordHash!==event.recordHash))throw Error('SERVER_ORIGIN_CONFLICT');
     const old=ids.get(event.eventId);
     if(old && old.recordHash!==event.recordHash)throw Error('ID_CONFLICT');
-    if(!old){box.entries.push({event,status:'pending'});ids.set(event.eventId,event);}
+    if(!old){box.entries.push({event,status:'pending',...(record.sharedRoom?{room:validateRoomTag(record.sharedRoom)}:{})});ids.set(event.eventId,event);}
    }
   }
   const updates=receiptUpdates.get(next);

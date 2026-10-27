@@ -2,7 +2,7 @@
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
 const oldRoot=process.argv[2]&&path.resolve(process.argv[2]),newRoot=path.resolve(process.argv[3]||path.join(__dirname,'../..'));
 if(!oldRoot)throw Error('Pass the previous app root as the first argument');
-const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',currentDraft='Synthetic draft copied before update.',cache='vector-shared-setup-v2-20261024-context-audit-20261026-assets';
+const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',currentDraft='Synthetic draft copied before update.',cache='vector-shared-setup-v2-20261024-common-room-20261027-local-assets';
 (async()=>{
  let served=oldRoot,unexpected=0,events=0,chats=0;
  const server=http.createServer((req,res)=>{const u=new URL(req.url,'http://local'),f=path.resolve(served,'.'+(u.pathname==='/'?'/index.html':u.pathname));if(!f.startsWith(served+'/')||!fs.existsSync(f)){res.statusCode=404;return res.end();}res.setHeader('cache-control','no-cache');res.setHeader('content-type',/\.m?js$/.test(f)?'application/javascript':f.endsWith('.html')?'text/html':f.endsWith('.css')?'text/css':'application/octet-stream');res.end(fs.readFileSync(f));});
@@ -18,7 +18,7 @@ const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',c
   }unexpected++;return route.abort();});
   const p=await ctx.newPage();await p.goto(base);await p.evaluate(()=>navigator.serviceWorker.register('/sw.js'));await p.evaluate(async()=>{await navigator.serviceWorker.ready;});await p.waitForFunction(()=>!!navigator.serviceWorker.controller);
   await p.locator('#vaultPass').fill(pass);await p.locator('#vaultConfirm').fill(pass);await p.locator('#vaultSubmit').click();await p.locator('#appShell').waitFor({state:'visible'});
-  const seeded=await p.evaluate(async()=>{
+  let seeded=await p.evaluate(async()=>{
    const {makeEvent,target}=await import('/local-shared-log/core.mjs');
    const policy={version:1,enrollmentId:'synthetic-enrollment',ownerSub:'synthetic-owner',documentId:'synthetic-doc',logId:'synthetic-log',namespace:'synthetic-server',deviceNamespaces:['synthetic-device'],partitions:['here:inner','comms:inner','backstage:backstage','project:outer']};
    const existing={id:'captured',sender:'user',at:'2026-10-22T00:00:00.000Z',text:'Synthetic prior confirmed outside event'};
@@ -27,9 +27,8 @@ const pass='synthetic-upgrade-passphrase',key='din-comms-v051-encrypted-vault',c
    await DinVault.save(state);return state;
   });
   async function reopen(){await p.reload();await p.evaluate(()=>{const start=DinAppStart;window.DinAppStart=data=>{window.observedBeforeStart=structuredClone(data);const save=DinVault.save.bind(DinVault);DinVault.save=async s=>{await save(s);window.observedSaved=structuredClone(s);};return start(data);};});await p.locator('#vaultPass').fill(pass);await p.locator('#vaultSubmit').click();await p.locator('#appShell').waitFor({state:'visible'});await p.waitForFunction(()=>!!window.VectorSharedLogLocal?.store);}
-  await reopen();const envelope=await p.evaluate(k=>localStorage.getItem(k),key);
-  await p.locator('[data-nav="backstage"]').click();await p.locator('#backstageDraft').fill(currentDraft);await p.waitForFunction(()=>document.getElementById('toast').textContent.includes('保存できません'));
-  assert.equal(await p.evaluate(k=>localStorage.getItem(k),key),envelope);
+  await reopen();let envelope=await p.evaluate(k=>localStorage.getItem(k),key);
+  await p.locator('[data-nav="backstage"]').click();await p.locator('#backstageDraft').fill(currentDraft);if(process.env.VECTOR_WORKING_PREVIOUS==='1'){await p.waitForFunction(text=>window.observedSaved?.backstageDraftText===text,currentDraft);seeded=await p.evaluate(()=>observedSaved);envelope=await p.evaluate(k=>localStorage.getItem(k),key);}else{await p.waitForFunction(()=>document.getElementById('toast').textContent.includes('保存できません'));assert.equal(await p.evaluate(k=>localStorage.getItem(k),key),envelope);}
   // Simulates the owner copying the visible draft before refresh. It is never sent.
   const copied=await p.locator('#backstageDraft').inputValue();assert.equal(copied,currentDraft);
   served=newRoot;await p.evaluate(async()=>{await (await navigator.serviceWorker.getRegistration()).update();});

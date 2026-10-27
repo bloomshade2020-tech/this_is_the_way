@@ -1,3 +1,4 @@
+import {roomClient} from './room-client.mjs';
 import {createProjection,installLocal} from './integration.mjs';
 export const BUILD='vector-shared-setup-v2-20261024';
 export const SCOPES=['here:inner','comms:inner','backstage:backstage','project:outer'];
@@ -18,7 +19,7 @@ export async function install(data,vault){
  for(const {key} of collections())if(!Array.isArray(data[key]))data[key]=[];
  const projection=createProjection({documentId:c.policy.documentId,logId:c.policy.logId,namespace:c.namespace,collections:collections(),relay:{enrollmentId:c.policy.enrollmentId,enabled:()=>projection.store?.configuration?.()?.exportEnabled===true}});
  const connect=projection.connect.bind(projection);
- projection.connect=(durable,{request})=>{connect(durable,{request:async(path,body)=>{await rollout();const r=await request('/shared-log/config',{});if(r.active!==true||r.everActivated!==true||r.clientBuild!==BUILD||!same(r.policy,c.policy))throw Error('共通ログは未有効化または停止中です');return request(path,body);}});projection.store.configuration=()=>durable.snapshot().sharedLogClient;};
+ projection.connect=(durable,{request})=>{const checkedRequest=async(path,body)=>{await rollout();const r=await request('/shared-log/config',{});if(r.active!==true||r.everActivated!==true||r.clientBuild!==BUILD||!same(r.policy,c.policy))throw Error('共通ログは未有効化または停止中です');return path==='/shared-log/config'?r:request(path,body);};connect(durable,{request:checkedRequest});projection.store.configuration=()=>durable.snapshot().sharedLogClient;projection.room=roomClient({durable,request:checkedRequest,projection,namespace:c.namespace});};
  installLocal({projection,vault});return projection;
 }
 export async function enrollClient({durable,request,consent}){

@@ -55,8 +55,8 @@ export function partition(events) {
 // Deliberately not a model-context builder: inner records are not automatically adopted/known.
 export function initialState() { return {version:1, entries:[]}; }
 export class Outbox {
-  constructor({target: t, store, drive, maxConflicts=3, maxBatch=16}) {
-    this.target=target(t); this.store=store; this.drive=drive;
+  constructor({target: t, store, drive, maxConflicts=3, maxBatch=16, parseDocument=parse}) {
+    this.target=target(t); this.store=store; this.drive=drive; this.parseDocument=parseDocument;
     if(!Number.isInteger(maxConflicts) || maxConflicts<1 || maxConflicts>10) fail('INVALID_RETRY_BOUND');
     this.maxConflicts=maxConflicts; this.tail=Promise.resolve();
     if(!Number.isInteger(maxBatch)||maxBatch<1||maxBatch>100)fail('INVALID_BATCH_BOUND');this.maxBatch=maxBatch;
@@ -97,7 +97,7 @@ export class Outbox {
         // Always reconcile before dispatch, including unknown outcome after restart.
         const doc=await this.drive.read(this.target.documentId);
         if(!nonempty(doc.revision)) fail('REVISION_REQUIRED');
-        const records=(await parse(doc.text,this.target)).events;
+        const records=(await this.parseDocument(doc.text,this.target)).events;
         const existing=records.find(e=>e.eventId===entry.event.eventId);
         if(existing) {
           if(existing.recordHash!==entry.event.recordHash) fail('ID_CONFLICT');
@@ -111,7 +111,7 @@ export class Outbox {
           // Readback is safe; never blindly repeat an uncertain write in this attempt.
           try {
             const after=await this.drive.read(this.target.documentId);
-            const found=(await parse(after.text,this.target)).events.find(e=>e.eventId===entry.event.eventId);
+            const found=(await this.parseDocument(after.text,this.target)).events.find(e=>e.eventId===entry.event.eventId);
             if(found && found.recordHash!==entry.event.recordHash) fail('ID_CONFLICT');
             if(found) { entry.status='confirmed'; await this.store.save(s); confirmed=true; break; }
           } catch(readError) { if(readError.message==='ID_CONFLICT') throw readError; }
@@ -120,7 +120,7 @@ export class Outbox {
         // A successful append must be reconciled even on the last allowed attempt.
         // Do not consume a conflict retry or append again if readback is unavailable.
         const after=await this.drive.read(this.target.documentId);
-        const found=(await parse(after.text,this.target)).events.find(e=>e.eventId===entry.event.eventId);
+        const found=(await this.parseDocument(after.text,this.target)).events.find(e=>e.eventId===entry.event.eventId);
         if(found && found.recordHash!==entry.event.recordHash) fail('ID_CONFLICT');
         if(!found) fail('RECONCILE_REQUIRED');
         entry.status='confirmed'; await this.store.save(s); confirmed=true; break;
